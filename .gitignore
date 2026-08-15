@@ -1,0 +1,29 @@
+# Byte-compiled / caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Large external algorithm downloads (RFdiffusion / ProteinMPNN / weights).
+# A setup script copies them from a local source directory; they are never
+# committed to git (GitHub 100 MB file limit).
+external/
+models/
+weights/
+
+# Run outputs are reproducible artifacts; keep small curated examples only.
+outputs/
+!outputs/.gitkeep
+
+# Data policy: small primary input structures ARE committed (data/raw);
+# anything fetched or derived later is not.
+data/processed/
+data/*/rfdiffusion_cache/
+
+# OS / editor
+.DS_Store
+*.swp
+.vscode/
+.idea/

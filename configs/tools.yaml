@@ -1,0 +1,39 @@
+# External algorithm locations (M00 tool registry).
+# Copy previously downloaded checkouts into ./external (git-ignored) with
+#   scripts/setup_external_tools.sh /home/protein_design2026/external
+# or point the paths directly at existing checkouts.
+#
+# LICENSE note (PRD NFR): RFdiffusion + ProteinMPNN weights are for
+# non-commercial research; record and re-review before any commercial use.
+
+rfdiffusion:
+  root: external/RFdiffusion
+  # python interpreter of the rfdiffusion conda env (leave null to probe PATH)
+  python: null
+  weights: external/RFdiffusion/models/Complex_base_ckpt.pt
+  license: RFdiffusion (BSD-like, non-commercial weights)
+  version: local-checkout
+
+proteinmpnn:
+  root: external/ProteinMPNN
+  python: null
+  weights: external/ProteinMPNN/vanilla_model_weights/vanilla_weights_state_dict.pt
+  license: "MIT (weights: non-commercial research)"
+  version: local-checkout
+
+foldseek: null        # set {root: ..., license: GPL-3} when installed
+mmseqs2: null
+netmhc2pan: null      # academic licence; adapter + review fallback otherwise
+
+predictors:
+  # primary complex predictor - first available wins:
+  af2_multimer:
+    kind: af2_multimer
+    weights: null
+    license: AlphaFold license (non-commercial)
+    notes: local colabfold_batch / AF2-Multimer on GPU hosts
+  boltz:
+    kind: boltz
+    weights: ~/.boltz
+    license: Boltz source-available
+    notes: boltz-2 checkpoints already downloaded on this server

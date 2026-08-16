@@ -163,8 +163,12 @@ predictors:
   measured`、`predictor=boltz-2` 全程标注。
 - **M05 单体折叠**同样走 Boltz 实测（pLDDT + 预测结构 vs 设计骨架的 bound/unbound
   RMSD，Kabsch 对齐）。
-- 自动挑选空闲显存最大的 GPU（`nvidia-smi` 解析）；离线运行（自序列 MSA，无需
-  MSA 服务器）；固定种子。NFS 属性缓存延迟已用 readdir+重试处理。
+- 自动挑选空闲显存最大的 GPU（`nvidia-smi` 解析）；**指定固定卡**（如 6 号）：
+  `configs/tools.yaml` → `predictors.boltz.device: 6`（持久）｜
+  `TROP2_BOLTZ_DEVICE=6 bash run.sh`（临时，SSH 派发同样生效）｜手动单跑
+  `ssh gn1` 后 `CUDA_VISIBLE_DEVICES=6 boltz predict ...`。解析优先级：
+  device 字段 > notes `device=6` > 环境变量 > 自动选卡。离线运行（自序列
+  MSA，无需 MSA 服务器）；固定种子。NFS 属性缓存延迟已用 readdir+重试处理。
 - 实测速率参考：~70 aa 单体 ≈ 90 s；~300 残基三链复合物 ≈ 110 s（单卡）。
 - **实测校准的重要结论**：Boltz 独立验证显示 fallback 启发式设计的真实结合很弱
   （ipTM 0.10–0.15 vs 几何代理 0.6–0.8）——这正是接入 GPU 复算的价值：进入实验

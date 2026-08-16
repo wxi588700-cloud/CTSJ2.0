@@ -40,6 +40,10 @@ class PredictorSpec(BaseModel):
     license: str = "unknown"
     notes: str = ""
     version: str | None = Field(None, description="installed version tag")
+    device: int | None = Field(
+        None, ge=0,
+        description="pin the predictor to this CUDA_VISIBLE_DEVICES index "
+                    "(e.g. 6); None = auto-pick the GPU with most free VRAM")
 
 
 class ToolsConfig(BaseModel):

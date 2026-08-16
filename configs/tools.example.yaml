@@ -34,6 +34,9 @@ predictors:
     notes: local colabfold_batch / AF2-Multimer on GPU hosts
   boltz:
     kind: boltz
+    python: ~/miniconda3/envs/boltz/bin/python   # interpreter of the boltz env
     weights: ~/.boltz
     license: Boltz source-available
     notes: boltz-2 checkpoints already downloaded on this server
+    # device: 6          # pin to GPU index 6; omit/comment = auto-pick
+                        # (env override: TROP2_BOLTZ_DEVICE=6)

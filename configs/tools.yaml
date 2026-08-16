@@ -41,6 +41,9 @@ predictors:
     license: Boltz source-available (weights on server, non-commercial research)
     version: "2.0.3 (torch 2.5.1+cu121)"
     notes: ssh_host=gn1 ; empty-MSA offline mode; seed from resources.seed
+    # device: 6            # 固定使用 6 号 GPU（CUDA_VISIBLE_DEVICES）
+    #                       # 注释掉 = 自动选择空闲显存最大的卡；
+    #                       # 临时指定也可用环境变量: TROP2_BOLTZ_DEVICE=6 bash run.sh
   af2_multimer:
     kind: af2_multimer
     weights: null

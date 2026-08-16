@@ -27,6 +27,7 @@ Design decisions
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -273,7 +274,15 @@ class BoltzPredictor:
         yaml_path = write_boltz_yaml(sequences, workdir / f"{name}.yaml",
                                      workdir=workdir)
         out_dir = workdir / "boltz_out"
+        # GPU pinning: explicit spec.device (tools.yaml device field or
+        # notes device=N) > TROP2_BOLTZ_DEVICE env var > auto-pick the GPU
+        # with most free VRAM.  The env var also applies to SSH dispatch
+        # because we inject the prefix into the remote command ourselves.
         device = self.spec.device
+        if device is None:
+            env_device = os.environ.get("TROP2_BOLTZ_DEVICE", "").strip()
+            if env_device.isdigit():
+                device = int(env_device)
         if device is None:
             device = pick_free_gpu(self.spec.ssh_host)
         cmd = self.spec._boltz_cmd() + [

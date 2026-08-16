@@ -33,7 +33,7 @@ class RunManifest(BaseModel):
     run_id: str
     created: str = Field(default_factory=utcnow)
     git_commit: str = "unknown"
-    package_version: str = "1.0.0"
+    package_version: str = "1.0.1"
     config_hash: str
     config_copy: dict[str, Any]
     seed: int

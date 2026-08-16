@@ -1,0 +1,111 @@
+profile_id: metrics_v1
+metrics:
+- name: fold_plddt
+  direction: maximize
+  unit: 0-100
+  description: binder monomer fold confidence
+  source: AF2/ColabFold
+  proxy_allowed: true
+- name: complex_iptm
+  direction: maximize
+  unit: 0-1
+  description: complex interface confidence
+  source: AF2-Multimer
+  proxy_allowed: true
+- name: interface_pae
+  direction: minimize
+  unit: A
+  description: interface positional uncertainty
+  source: AF2-Multimer
+  proxy_allowed: true
+- name: t88_contact
+  direction: gate
+  unit: bool+occupancy
+  description: direct recognition of the T88 free alpha-amino terminus
+  source: atom geometry
+  proxy_allowed: true
+- name: t88_contact_occupancy
+  direction: maximize
+  unit: 0-1
+  description: fraction of cleaved states with direct T88 contact
+  source: atom geometry
+  proxy_allowed: true
+- name: positive_pass_rate
+  direction: maximize
+  unit: 0-1
+  description: fraction of cleaved conformers passing binding thresholds
+  source: cross-state statistics
+  proxy_allowed: true
+- name: intact_risk
+  direction: minimize
+  unit: normalized
+  description: binding risk against intact TROP2
+  source: negative-state prediction
+  proxy_allowed: true
+- name: epcam_risk
+  direction: minimize
+  unit: normalized
+  description: binding risk against EpCAM
+  source: negative-state prediction
+  proxy_allowed: true
+- name: cis_block
+  direction: maximize
+  unit: 0-1
+  description: coverage/blocking of the cis interface
+  source: structural superposition
+  proxy_allowed: true
+- name: trans_occlusion
+  direction: minimize
+  unit: 0-1
+  description: occlusion of the trans interface
+  source: structural superposition
+  proxy_allowed: true
+- name: glycan_membrane_clash
+  direction: minimize
+  unit: count
+  description: glycan and membrane collisions
+  source: spatial geometry
+  proxy_allowed: true
+- name: shape_complementarity
+  direction: maximize
+  unit: 0-1
+  description: interface shape complementarity
+  source: interface analyzer
+  proxy_allowed: true
+- name: buried_unsat
+  direction: minimize
+  unit: count
+  description: buried unsatisfied polar atoms
+  source: interface analyzer
+  proxy_allowed: true
+- name: aggregation_risk
+  direction: minimize
+  unit: relative
+  description: structural aggregation hotspots
+  source: A3D/CamSol-style
+  proxy_allowed: true
+- name: solubility_score
+  direction: maximize
+  unit: 0-1
+  description: sequence+surface solubility estimate
+  source: CamSol-style
+  proxy_allowed: true
+- name: mhc2_risk
+  direction: minimize
+  unit: peptides
+  description: MHC-II presentation risk
+  source: NetMHCIIpan
+  proxy_allowed: true
+- name: liability_count
+  direction: minimize
+  unit: count
+  description: sequence liability flags
+  source: sequence rules
+  proxy_allowed: true
+- name: uncertainty
+  direction: minimize
+  unit: sd
+  description: cross-model/seed/state disagreement
+  source: aggregate statistics
+  proxy_allowed: true
+missing_value_policy: review

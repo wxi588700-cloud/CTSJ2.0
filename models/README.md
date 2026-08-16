@@ -1,4 +1,30 @@
-# 模型说明（Model Card）与第三方模型清单
+# 模型说明（Model Card）、决策模型与第三方模型清单
+
+## 〇、本目录内容
+
+| 文件 | 说明 |
+|---|---|
+| `metrics_v1.yaml` | **本项目决策模型 · 指标字典**（18 项指标的方向/单位/解释/来源/是否允许代理）——M10 运行时实际加载（`ranking/_load_profiles`），修改即产生新的指标定义版本 |
+| `hard_filter_v1_strict.yaml` | **本项目决策模型 · 硬门槛画像**（8 条终局性门槛 + 6 组展示权重，PRD 12.1/12.3）——M10 运行时实际加载；任何阈值变更即新的 `ranking_profile_id`（PRD 附录 A 要求"阈值必须存放在版本化配置中"） |
+| `third_party_manifest.json` | 第三方模型与权重清单：版本/来源 URL/字节数/SHA-256（前 16 位）/调用方式/许可/**是否实际执行**（权重本体过大不入库，按清单校验） |
+| `README.md` | 本文件：Model Card + 无自训练声明 + 创新贡献 |
+
+> 大赛规范（附件5 §二）允许 `models/` 放"最终模型权重，**或下载/调用说明**"。
+> 本项目无自训练权重，故入库的是：**决策模型的版本化定义**（上述两个 YAML，
+> 这是本项目自己的"模型"产物）+ 第三方权重的完整获取与校验说明。
+
+获取第三方权重（新机器）：
+
+```bash
+# RFdiffusion + ProteinMPNN（如本机已有下载，直接复制）
+scripts/setup_external_tools.sh /path/to/downloaded/checkouts
+# 全新下载：
+git clone https://github.com/RosettaCommons/RFdiffusion external/RFdiffusion
+git clone https://github.com/dauparas/ProteinMPNN external/ProteinMPNN
+# Boltz-2：pip install boltz==2.0.3，权重首次预测时自动下载到 ~/.boltz
+# 校验：对照 third_party_manifest.json 的 sha256_16
+sha256sum external/RFdiffusion/models/Complex_base_ckpt.pt
+```
 
 ## 一、本项目模型性质声明（对应大赛第三节"特殊情形"）
 
@@ -7,8 +33,9 @@
 
 - R87-T88 裂解态构建、表位分析、正/负状态界面评分、cis/trans 机制几何、
   可开发性指标 —— 全部为坐标级确定性计算（numpy/scipy/gemmi 实现，固定种子）。
-- ipTM/pLDDT/pAE 类置信度指标在无 GPU 基线中由**确定性几何代理**给出，
-  全部标注 `metric_source=proxy`（见报告与 `candidate_metrics.csv`）。
+- ipTM/pLDDT/pAE 类置信度指标：CPU 基线为**确定性几何代理**
+  （`metric_source=proxy`）；GPU 环境由 **Boltz-2 实测**替换
+  （`metric_source=measured`，见第二节数据行与 README §7.5）。
 - 因此**无 train.py / 训练日志 / 数据划分**（大赛规范允许：未训练项目不强制提交）。
 
 ## 二、使用的开源/第三方模型（名称、版本、调用方式、许可）

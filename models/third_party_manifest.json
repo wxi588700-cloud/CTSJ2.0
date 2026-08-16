@@ -1,0 +1,63 @@
+{
+  "description": "第三方模型与权重清单（溯源：版本/来源/大小/SHA-256 前16位/许可/实际执行状态）。权重本体不入库（超 GitHub 100MB 限制），按 models/README.md 的下载/复制说明获取后用此清单校验。",
+  "generated": "2026-08-16",
+  "models": [
+    {
+      "name": "Boltz-2",
+      "role": "M05 单体折叠 + M06 复合物独立实测复算",
+      "version": "boltz 2.0.3 (torch 2.5.1+cu121)",
+      "source": "pip install boltz==2.0.3 (PyPI)；权重由 CLI 首次运行自动下载至 ~/.boltz",
+      "weights": [
+        {"file": "~/.boltz/boltz2_conf.ckpt", "bytes": 2286561469, "sha256_16": "090e82ac8c92f5e9"},
+        {"file": "~/.boltz/boltz2_aff.ckpt", "bytes": 2062139170, "sha256_16": "dcc5cd3722b1c9ea"}
+      ],
+      "invocation": "src/trop2_design/prediction/boltz_adapter.py（自序列MSA离线模式, sampling 200 / recycling 3, seed=resources.seed, 自动选空闲GPU）",
+      "license": "Boltz source-available（非商业研究）",
+      "executed": true
+    },
+    {
+      "name": "RFdiffusion",
+      "role": "M04 binder 骨架生成（GPU；CPU 基线自动回退到确定性生成器并记录）",
+      "version": "本地 checkout（main, 2026-08 获取）",
+      "source": "git clone https://github.com/RosettaCommons/RFdiffusion",
+      "weights": [
+        {"file": "external/RFdiffusion/models/Complex_base_ckpt.pt", "bytes": 483619179, "sha256_16": "76e4e260aefee3b5"}
+      ],
+      "invocation": "src/trop2_design/generation/adapters.py::RfdiffusionAdapter（hotspot=T88邻域, 60-120aa, seed 派生）",
+      "license": "BSD-like 代码 / 权重非商业研究",
+      "executed": false
+    },
+    {
+      "name": "ProteinMPNN",
+      "role": "M05 序列设计（GPU/均可；CPU 基线自动回退到径向分层设计器并记录）",
+      "version": "本地 checkout（vanilla v_48_010）",
+      "source": "git clone https://github.com/dauparas/ProteinMPNN",
+      "weights": [
+        {"file": "external/ProteinMPNN/vanilla_model_weights/v_48_010.pt", "bytes": 6681301, "sha256_16": "db866fae956a2866"}
+      ],
+      "invocation": "src/trop2_design/sequence_design/design.py::ProteinMPNNAdapter（每骨架3序列, 禁Cys, seed 派生）",
+      "license": "MIT 代码 / 权重非商业研究",
+      "executed": false
+    },
+    {
+      "name": "Foldseek / MMseqs2",
+      "role": "M07 脱靶筛查",
+      "version": "未安装",
+      "source": "https://github.com/steineggerlab/foldseek",
+      "weights": [],
+      "invocation": "接口保留于 scoring/specificity.py；未配置时结果标注 review（不静默置零）",
+      "license": "GPL-3",
+      "executed": false
+    },
+    {
+      "name": "NetMHCIIpan",
+      "role": "M09 MHC-II 呈递风险",
+      "version": "未安装（学术许可需注册）",
+      "source": "https://services.healthtech.dtu.dk/service.php?NetMHCIIpan-4.3",
+      "weights": [],
+      "invocation": "接口保留于 scoring/developability.py；未配置时使用确定性倾向性代理并标注",
+      "license": "学术许可",
+      "executed": false
+    }
+  ]
+}

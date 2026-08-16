@@ -13,7 +13,9 @@ import numpy as np
 import pandas as pd
 
 from ..io import write_json
-from ..schemas.metrics import default_metrics_profile, v1_strict_profile
+from ..schemas.metrics import (
+    HardFilterProfile, MetricsProfile, default_metrics_profile, v1_strict_profile,
+)
 from ..reporting.html import render_report
 from .pareto import (
     apply_gates, greedy_cluster, non_dominated_sort, normalise,
@@ -85,6 +87,39 @@ PARETO_OBJECTIVES = [
 ]
 
 
+def _load_profiles(ranking_cfg):
+    """Load versioned decision-model profiles.
+
+    PRD appendix A: thresholds MUST live in versioned configuration - any
+    change produces a new ranking_profile_id.  We prefer the YAML profiles
+    shipped under models/ (the auditable "decision model" of this project)
+    and fall back to the identical in-code defaults when absent.
+    """
+    root = Path(__file__).resolve().parents[3]
+    gate_yaml = root / "models" / f"hard_filter_{ranking_cfg.hard_filter_profile}.yaml"
+    metric_yaml = root / "models" / f"{ranking_cfg.metrics_profile}.yaml"
+    profile = metrics_profile = None
+    try:
+        if gate_yaml.exists():
+            profile = HardFilterProfile.from_yaml(gate_yaml)
+    except Exception:
+        profile = None
+    try:
+        if metric_yaml.exists():
+            import yaml as _yaml
+
+            with open(metric_yaml) as fh:
+                metrics_profile = MetricsProfile.model_validate(
+                    _yaml.safe_load(fh))
+    except Exception:
+        metrics_profile = None
+    if profile is None:
+        profile = v1_strict_profile()
+    if metrics_profile is None:
+        metrics_profile = default_metrics_profile()
+    return profile, metrics_profile
+
+
 def run(ctx) -> None:
     cfg = ctx.config
     out = ctx.out
@@ -92,8 +127,7 @@ def run(ctx) -> None:
     if df.empty:
         raise RuntimeError("no candidates reached M10")
 
-    profile = v1_strict_profile()
-    metrics_profile = default_metrics_profile()
+    profile, metrics_profile = _load_profiles(cfg.ranking)
     lambda_pen = cfg.ranking.uncertainty_lambda
     quantile = cfg.ranking.robust_positive_quantile
 

@@ -1,0 +1,68 @@
+profile_id: v1_strict
+gates:
+- metric: positive_state_pass_rate
+  op: '>='
+  threshold: 0.2
+  reject_message: cleaved-state complex not reproducibly predicted
+- metric: t88_contact
+  op: ==
+  threshold: true
+  reject_message: no direct T88 neo-N-terminus recognition
+- metric: intact_risk
+  op: <=
+  threshold: 0.55
+  reject_message: high-confidence binding to intact TROP2
+- metric: epcam_risk
+  op: <=
+  threshold: 0.55
+  reject_message: high-confidence binding to EpCAM
+- metric: glycan_membrane_clash
+  op: <=
+  threshold: 0.0
+  reject_message: unacceptable membrane/glycan collision
+- metric: fold_plddt
+  op: '>='
+  threshold: 70.0
+  reject_message: binder monomer does not fold confidently
+- metric: aggregation_risk
+  op: <=
+  threshold: 0.7
+  reject_message: obvious self-aggregation tendency
+- metric: trans_occlusion
+  op: <=
+  threshold: 0.4
+  reject_message: binder sterically occludes the trans interface
+display_weights:
+- name: cleaved binding & T88 terminus
+  weight: 0.25
+  metrics:
+  - positive_pass_rate
+  - t88_contact_occupancy
+  - complex_iptm
+- name: intact/EpCAM selectivity
+  weight: 0.25
+  metrics:
+  - intact_risk
+  - epcam_risk
+- name: cis/trans, membrane & glycan geometry
+  weight: 0.15
+  metrics:
+  - cis_block
+  - trans_occlusion
+  - glycan_membrane_clash
+- name: fold & interface stability
+  weight: 0.15
+  metrics:
+  - fold_plddt
+  - shape_complementarity
+  - buried_unsat
+- name: solubility & manufacturability
+  weight: 0.1
+  metrics:
+  - solubility_score
+  - aggregation_risk
+- name: immuno/protease/chemical risk
+  weight: 0.1
+  metrics:
+  - mhc2_risk
+  - liability_count

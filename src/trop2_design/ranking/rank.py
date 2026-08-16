@@ -125,10 +125,15 @@ def run(ctx) -> None:
     # ---- normalised objectives + Pareto among gate survivors
     df["fold_plddt_norm"] = normalise(df["fold_plddt"].to_numpy(), "maximize") * 100.0
     survivors = df[df.hard_filter_status != "reject"].copy()
-    if not survivors.empty:
+    # objectives whose columns are missing (e.g. empty mechanism table after
+    # the measured predictor rejected every design) are skipped, never zero-
+    # filled silently
+    available_objectives = [(c, d) for c, d in PARETO_OBJECTIVES
+                             if c in survivors.columns]
+    if not survivors.empty and available_objectives:
         pts = np.column_stack([
             survivors[col].astype(float).fillna(0.0).to_numpy()
-            for col, _ in PARETO_OBJECTIVES
+            for col, _ in available_objectives
         ])
         fronts = non_dominated_sort(pts)
         survivors["pareto_rank"] = fronts

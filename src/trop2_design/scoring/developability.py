@@ -223,7 +223,15 @@ def run(ctx) -> None:
     agg = pos[pos.state_id == "AGGREGATE"]
     shortlist = agg[agg.positive_state_pass_rate > 0]
     if shortlist.empty:
-        raise RuntimeError("no positive-passing candidates for developability")
+        pd.DataFrame(columns=["candidate_id", "design_name", "mw_da", "pI",
+                              "solubility_score", "aggregation_risk"]).to_csv(
+            out / "developability_metrics.csv", index=False)
+        pd.DataFrame(columns=["candidate_id", "liability", "severity"]).to_csv(
+            out / "liability_flags.csv", index=False)
+        pd.DataFrame(columns=["candidate_id", "peptide", "propensity"]).to_csv(
+            out / "immunogenicity_hits.csv", index=False)
+        ctx.state["developability"] = []
+        return
 
     mono = pd.read_csv(out / "monomer_metrics.csv")
     cand_manifest = pd.read_csv(out / "candidate_manifest.csv").set_index("candidate_id")

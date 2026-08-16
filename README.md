@@ -145,6 +145,34 @@ TROP2）· 备注（可追溯淘汰原因）。
 - **本项目创新贡献**（五点，含裂解态拓扑编辑、T88 末端硬门槛、三重负设计、稳健
   选择性公式、可复现工程）见 `models/README.md` 第四节。
 
+## 7.5 GPU 接入（Boltz-2 实测复算）
+
+本集群 GPU 节点（`gn1`：8×48 GB，CUDA 12.4）与家目录 NFS 共享，`configs/tools.yaml`
+已配置 Boltz-2 实测链路：
+
+```yaml
+predictors:
+  boltz:
+    python: ~/miniconda3/envs/boltz/bin/python   # boltz env (2.0.3, torch 2.5.1+cu121)
+    notes: ssh_host=gn1                          # CPU 管理节点发起时自动 SSH 派发
+```
+
+- **两阶段算力控制**（PRD 8.2）：几何代理全量筛选 → Boltz-2 仅对 `resources.
+  boltz_recompute_top_k`（默认 8）个设计做**独立复算**（预测复合物与设计姿势无关，
+  消除自证偏差），实测 ipTM/pLDDT/界面 PAE/T88 接触替换代理值，`metric_source=
+  measured`、`predictor=boltz-2` 全程标注。
+- **M05 单体折叠**同样走 Boltz 实测（pLDDT + 预测结构 vs 设计骨架的 bound/unbound
+  RMSD，Kabsch 对齐）。
+- 自动挑选空闲显存最大的 GPU（`nvidia-smi` 解析）；离线运行（自序列 MSA，无需
+  MSA 服务器）；固定种子。NFS 属性缓存延迟已用 readdir+重试处理。
+- 实测速率参考：~70 aa 单体 ≈ 90 s；~300 残基三链复合物 ≈ 110 s（单卡）。
+- **实测校准的重要结论**：Boltz 独立验证显示 fallback 启发式设计的真实结合很弱
+  （ipTM 0.10–0.15 vs 几何代理 0.6–0.8）——这正是接入 GPU 复算的价值：进入实验
+  决策的候选必须以 `metric_source=measured` 为准；正式生产应配合 RFdiffusion +
+  ProteinMPNN 生成真实候选后再实测排序。
+- 直接在 GPU 节点上运行（本地执行、免 SSH）：`ssh gn1` 后同样 `bash run.sh`
+  （去掉 tools.yaml notes 中的 `ssh_host=` 即本地模式）。
+
 ## 8. 测试
 
 ```bash

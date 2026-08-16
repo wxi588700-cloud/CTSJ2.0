@@ -188,13 +188,25 @@ def render_report(out: Path, df: pd.DataFrame, top: pd.DataFrame,
             return None
         return v
 
-    all_rows = []
-    for _, r in df.iterrows():
+    # template-optional columns: absent columns (e.g. empty negative/mechanism
+    # tables) are filled with None so Jinja never sees Undefined attributes
+    TEMPLATE_COLUMNS = [
+        "candidate_id", "design_name", "sequence", "hard_filter_status",
+        "positive_state_pass_rate", "t88_contact", "t88_contact_occupancy",
+        "complex_iptm", "intact_risk", "epcam_risk", "cis_block",
+        "trans_occlusion", "glycan_membrane_clash", "aggregation_risk",
+        "fold_plddt", "uncertainty", "pareto_rank", "robust_selectivity",
+        "family_cluster", "metric_source", "rejection_reasons",
+    ]
+
+    def row_dict(r):
         d = {k: jsafe(v) for k, v in r.to_dict().items()}
-        all_rows.append(d)
-    top_rows = []
-    for _, r in top.iterrows():
-        top_rows.append({k: jsafe(v) for k, v in r.to_dict().items()})
+        for col in TEMPLATE_COLUMNS:
+            d.setdefault(col, None)
+        return d
+
+    all_rows = [row_dict(r) for _, r in df.iterrows()]
+    top_rows = [row_dict(r) for _, r in top.iterrows()]
     rejections = [
         {"candidate_id": r.candidate_id, "design_name": r.design_name,
          "reasons": [x for x in str(r.rejection_reasons).split(";") if x]}

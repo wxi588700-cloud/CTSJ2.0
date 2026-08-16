@@ -69,7 +69,12 @@ def run(ctx) -> None:
     agg = pos[pos.state_id == "AGGREGATE"]
     shortlist = agg[agg.positive_state_pass_rate > 0]
     if shortlist.empty:
-        raise RuntimeError("no positive-passing candidates for mechanism analysis")
+        pd.DataFrame(columns=["candidate_id", "design_name", "cis_block",
+                              "trans_occlusion", "glycan_membrane_clash"]).to_csv(
+            out / "mechanism_metrics.csv", index=False)
+        write_json(out / "clash_report.json", [])
+        ctx.state["mechanism"] = []
+        return
 
     registry = read_json(out / "target_registry.json")
     exclusion = read_json(out / "exclusion_mask.json")

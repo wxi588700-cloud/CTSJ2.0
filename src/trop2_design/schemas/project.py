@@ -160,6 +160,12 @@ class ResourceConfig(StrictModel):
         description="permit deterministic geometric proxies when a predictor is unavailable "
         "(always flagged metric_source='proxy' and review-required)",
     )
+    boltz_recompute_top_k: int = Field(
+        8, ge=0, le=100,
+        description="when Boltz is configured: re-run real complex prediction for the "
+                    "top-K candidates (per cleaved conformer), replacing proxy "
+                    "ipTM/pLDDT/PAE with measured values; 0 disables GPU recomputation",
+    )
 
 
 class ProjectConfig(StrictModel):

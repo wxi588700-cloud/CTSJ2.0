@@ -3,6 +3,12 @@
 #   scripts/setup_external_tools.sh /path/to/downloaded/checkouts
 # or point the paths directly at existing checkouts.
 #
+# GPU predictor (Boltz-2): python = interpreter of the boltz conda env.
+# On this cluster the GPU node gn1 shares the home directory over NFS, so
+# runs launched on the CPU management node are dispatched via SSH while
+# inputs/outputs remain directly visible on both sides.  Remove the
+# ssh_host note when running ON the GPU node itself.
+#
 # LICENSE note (PRD NFR): RFdiffusion + ProteinMPNN weights are for
 # non-commercial research; record and re-review before any commercial use.
 
@@ -16,7 +22,8 @@ rfdiffusion:
 
 proteinmpnn:
   root: external/ProteinMPNN
-  python: null
+  # the boltz env already ships a CUDA torch; ProteinMPNN runs fine with it
+  python: ~/miniconda3/envs/boltz/bin/python
   weights: external/ProteinMPNN/vanilla_model_weights/vanilla_weights_state_dict.pt
   license: "MIT (weights: non-commercial research)"
   version: local-checkout
@@ -27,13 +34,15 @@ netmhc2pan: null      # academic licence; adapter + review fallback otherwise
 
 predictors:
   # primary complex predictor - first available wins:
+  boltz:
+    kind: boltz
+    python: ~/miniconda3/envs/boltz/bin/python
+    weights: ~/.boltz
+    license: Boltz source-available (weights on server, non-commercial research)
+    version: "2.0.3 (torch 2.5.1+cu121)"
+    notes: ssh_host=gn1 ; empty-MSA offline mode; seed from resources.seed
   af2_multimer:
     kind: af2_multimer
     weights: null
     license: AlphaFold license (non-commercial)
-    notes: local colabfold_batch / AF2-Multimer on GPU hosts
-  boltz:
-    kind: boltz
-    weights: ~/.boltz
-    license: Boltz source-available
-    notes: boltz-2 checkpoints already downloaded on this server
+    notes: local colabfold_batch / AF2-Multimer on GPU hosts (not installed)

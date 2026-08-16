@@ -1,0 +1,72 @@
+# GPU 冒烟配置：小规模验证 Boltz 实测链路（M05 单体 + M06 复合物复算）
+# 与 trop2_v1.yaml 的差异仅在设计规模与 top-K
+project:
+  name: trop2_cis_dimer_inhibitor_gpu_smoke
+  species: Homo_sapiens
+
+target:
+  name: TROP2
+  uniprot_id: P09758
+  gene: TACSTD2
+  species: Homo sapiens
+  sequence_fasta: data/raw/fasta/TROP2_human.fasta
+  cis_structure:
+    path: data/raw/pdb/7E5N.cif
+    chain: A
+    role: cis_assembly
+  trans_structure:
+    path: data/raw/pdb/7E5M.cif
+    chain: A
+    role: trans_assembly
+  alternate_structure:
+    path: data/raw/pdb/7PEE.cif
+    chain: A
+    role: ecd_monocistronic
+  cleavage:
+    left_residue: R87
+    right_residue: T88
+    preserve_disulfides: [[C73, C108]]
+    left_terminal_state: COO-
+    right_terminal_state: NH3+
+    numbering: author
+  glycosylation_sites: [33, 120, 168, 184]
+  glycan_exclusion_radius: 12.0
+  membrane_clearance: 8.0
+
+design:
+  binder_length: [60, 120]
+  generator: rfdiffusion
+  hotspot_mode: t88_neo_n_terminus
+  hotspot_radius: 10.0
+  n_designs_per_scaffold: 2
+  max_candidates: 6
+  import_fasta: null
+  import_pdb_dir: null
+  fixed_interface_positions: []
+  forbidden_aa: [C]
+  allowed_aa: null
+
+negatives:
+  targets: [intact_trop2_cis, intact_trop2_trans, human_epcam]
+  epcam_structure: data/raw/pdb/4MZV.cif
+  epcam_uniprot: P16422
+  epcam_fasta: data/raw/fasta/EpCAM_human.fasta
+  surfaceome_screen: false
+
+ranking:
+  hard_filter_profile: v1_strict
+  metrics_profile: metrics_v1
+  method: pareto
+  diversity_cluster_identity: 0.70
+  max_per_family: 3
+  export_top_n: 24
+  uncertainty_lambda: 0.5
+  robust_positive_quantile: 0.10
+
+resources:
+  seed: 20260816
+  max_cpu: 8
+  gpu_required: false
+  max_residues_per_predict: 1200
+  allow_proxy_metrics: true
+  boltz_recompute_top_k: 2

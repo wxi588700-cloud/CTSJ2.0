@@ -20,7 +20,7 @@ import pandas as pd
 
 from ..io import (
     first_protein_chain, polymer_residues, read_json, read_structure,
-    write_cif, write_json,
+    residue_one_letter, write_cif, write_json,
 )
 from ..io.geometry import kabsch, sasa
 from ..schemas.project import parse_residue_id
@@ -145,6 +145,39 @@ def t88_terminal_evidence(state_chains, right_num: int, pose_ca) -> dict:
         "n_contacts": int(within.sum()),
         "contact_atoms": [f"CA{i+1}" for i in np.where(within)[0][:10]],
         "orientation_score": round(orient, 3),
+    }
+
+
+def _t88_contact_from_structure(cif_path, right_num: int,
+                                binder_chain: str = "C") -> dict:
+    """T88 free-N-terminus contact evidence measured on a PREDICTED complex
+    (e.g. Boltz output): distance from the T88 backbone N atom to the nearest
+    binder-chain heavy atom.  Falls back to no-contact when the residue is
+    not resolved."""
+    if cif_path is None or not Path(cif_path).exists():
+        return {"contacted": False, "min_distance": 99.0, "n_contacts": 0}
+    st = read_structure(cif_path)
+    model = st[0]
+    t88_n = None
+    binder_pts = []
+    for ch in model:
+        for res in polymer_residues(ch):
+            if ch.name != binder_chain and res.seqid.num == right_num:
+                n = res.find_atom("N", "*")
+                if n is not None:
+                    t88_n = np.array([n.pos.x, n.pos.y, n.pos.z])
+            if ch.name == binder_chain:
+                for atom in res:
+                    binder_pts.append([atom.pos.x, atom.pos.y, atom.pos.z])
+    if t88_n is None or not binder_pts:
+        return {"contacted": False, "min_distance": 99.0, "n_contacts": 0}
+    binder_pts = np.asarray(binder_pts)
+    d = np.linalg.norm(binder_pts - t88_n, axis=1)
+    within = d <= T88_CONTACT_CUTOFF
+    return {
+        "contacted": bool(within.any()),
+        "min_distance": round(float(d.min()), 2),
+        "n_contacts": int(within.sum()),
     }
 
 
@@ -273,10 +306,129 @@ def run(ctx) -> None:
             })
 
     df = pd.DataFrame(rows)
+
+    # ------------------------------------------------------------------
+    # Two-stage GPU recomputation (PRD 8.2 compute control): the geometric
+    # proxy filters ALL candidates; Boltz-2 then re-predicts the top-K
+    # designs against every cleaved conformer, replacing proxy ipTM/pLDDT/
+    # PAE and the T88-contact evidence with MEASURED values from the
+    # predicted complex (independent of the designed pose -> no
+    # self-consistency bias).  Requires predictors.boltz.python in tools.yaml.
+    # ------------------------------------------------------------------
+    top_k = getattr(cfg.resources, "boltz_recompute_top_k", 0)
+    recompute_log: list[dict] = []
+    if top_k > 0:
+        bp = None
+        try:
+            from ..prediction import build_boltz
+            bspec = ctx.tools.predictors.get("boltz") if ctx.tools else None
+            if bspec is not None and bspec.python:
+                bp = build_boltz(bspec, ctx.seed)
+        except Exception:
+            bp = None
+        if bp is not None:
+            mono = pd.read_csv(out / "monomer_metrics.csv")
+            seq_of = dict(zip(mono.design_name, mono.sequence))
+            # shortlist: best proxy robust_positive designs
+            agg0 = df[df.state_id == "AGGREGATE"].sort_values(
+                "robust_positive", ascending=False)
+            shortlist = list(agg0[["candidate_id", "design_name"]]
+                             .drop_duplicates().itertuples(index=False))[:top_k]
+            # per-state TROP2 chain sequences (NFR + BODY) from the cleaved cif
+            state_seqs: dict[str, dict[str, str]] = {}
+            for _, srow in cleaved.iterrows():
+                _, chains = load_state(Path(srow.file))
+                seqs_state = {}
+                for ch_name, ch_res in chains.items():
+                    seqs_state[ch_name] = "".join(
+                        residue_one_letter(r) for r in ch_res)
+                state_seqs[srow.state_id] = seqs_state
+
+            for cid, dn in shortlist:
+                binder_seq = seq_of.get(dn)
+                if not isinstance(binder_seq, str) or not binder_seq:
+                    continue
+                # Boltz input is SEQUENCE-only: the prediction cannot
+                # distinguish cleaved conformers of the same sequence, so we
+                # predict once per design (reference conformer) and apply the
+                # measured values to every conformer row.  Template/constraint
+                # conditioning is the documented upgrade path.
+                sid = cleaved.iloc[0].state_id
+                ss = state_seqs[sid]
+                chain_map = sorted(ss)  # BODY, NFR -> A, B
+                sequences = {
+                    "A": ss[chain_map[0]],
+                    "B": ss[chain_map[1]],
+                    "C": binder_seq,
+                }
+                result = bp.predict_complex(
+                    sequences, f"{cid[:12]}_cx",
+                    out / "boltz_complex" / dn[:64])
+                rec = {"candidate_id": cid, "design_name": dn,
+                       "state_id": sid, "ok": result.ok,
+                       "reason": result.reason}
+                if result.ok and result.iptm is not None:
+                    mask = (df.candidate_id == cid) & (df.design_name == dn) \
+                        & (df.state_id != "AGGREGATE")
+                    t88_meas = _t88_contact_from_structure(
+                        result.structure, right_num, "C")
+                    df.loc[mask, "complex_iptm_proxy"] = result.iptm
+                    df.loc[mask, "interface_pae_proxy"] = (
+                        result.interface_pae
+                        if result.interface_pae is not None
+                        else df.loc[mask, "interface_pae_proxy"])
+                    df.loc[mask, "metric_source"] = "measured"
+                    df.loc[mask, "predictor"] = "boltz-2"
+                    df.loc[mask, "t88_contacted"] = t88_meas["contacted"]
+                    df.loc[mask, "t88_min_distance"] = t88_meas["min_distance"]
+                    df.loc[mask, "t88_n_contacts"] = t88_meas["n_contacts"]
+                    rec.update({"iptm": result.iptm,
+                                "plddt": result.plddt,
+                                "interface_pae": result.interface_pae,
+                                "t88_contacted": t88_meas["contacted"]})
+                recompute_log.append(rec)
+            # recompute pass status + aggregates for recomputed designs
+            for cid, dn in shortlist:
+                sub = df[(df.candidate_id == cid) & (df.design_name == dn)
+                         & (df.state_id != "AGGREGATE")]
+                if sub.empty or not (sub.metric_source == "measured").any():
+                    continue
+                iptms = sub["complex_iptm_proxy"].to_numpy(dtype=float)
+                quant = cfg.ranking.robust_positive_quantile
+                agg_mask = (df.candidate_id == cid) & (df.design_name == dn) \
+                    & (df.state_id == "AGGREGATE")
+                df.loc[agg_mask, "robust_positive"] = round(
+                    float(np.quantile(iptms, quant)), 3)
+                df.loc[agg_mask, "uncertainty_positive"] = round(
+                    float(np.std(iptms)), 4)
+                df.loc[agg_mask, "t88_contact_occupancy"] = round(
+                    float(sub["t88_contacted"].astype(bool).mean()), 3)
+                df.loc[agg_mask, "predictor"] = "boltz-2"
+            # status column re-evaluation with measured values
+            for idx, r in df[df.state_id != "AGGREGATE"].iterrows():
+                if r.get("metric_source") == "measured":
+                    ok = (float(r.complex_iptm_proxy) >= MIN_IPTM
+                          and bool(r.t88_contacted)
+                          and float(r.clashes) <= 25
+                          and float(r.interface_area_A2) >= MIN_INTERFACE_AREA)
+                    df.at[idx, "status"] = "pass" if ok else "fail_state"
+            for idx, r in df[df.state_id == "AGGREGATE"].iterrows():
+                sub = df[(df.candidate_id == r.candidate_id)
+                         & (df.design_name == r.design_name)
+                         & (df.state_id != "AGGREGATE")]
+                if not sub.empty and (sub.metric_source == "measured").any():
+                    df.at[idx, "positive_state_pass_rate"] = round(
+                        float((sub.status == "pass").mean()), 3)
+        write_json(out / "boltz_recompute_log.json", recompute_log)
+
     df.to_csv(out / "positive_state_metrics.csv", index=False)
     write_json(out / "terminal_contact.json", terminal_records)
 
     agg = df[df.state_id == "AGGREGATE"]
-    if agg.empty or not (agg.positive_state_pass_rate > 0).any():
-        raise RuntimeError("no candidate reproduced binding in any cleaved state")
+    if agg.empty:
+        raise RuntimeError("no positive-state results at all")
+    # NOTE: zero candidates passing is a VALID scientific outcome (e.g. the
+    # measured predictor rejects every fallback design); the pipeline then
+    # continues with an empty shortlist so M10 can report the full
+    # rejection-reason audit trail instead of aborting.
     ctx.state["positive"] = rows

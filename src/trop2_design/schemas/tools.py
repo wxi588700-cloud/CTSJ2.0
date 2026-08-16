@@ -39,6 +39,7 @@ class PredictorSpec(BaseModel):
     weights: Path | None = None
     license: str = "unknown"
     notes: str = ""
+    version: str | None = Field(None, description="installed version tag")
 
 
 class ToolsConfig(BaseModel):

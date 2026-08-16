@@ -17,7 +17,8 @@
 |---|---|---|---|---|---|
 | RFdiffusion | 本地 checkout（含 Complex_base 权重） | M04 binder 骨架生成（适配器 `src/trop2_design/generation/adapters.py`） | hotspot 残基=T88 邻域; 60-120 aa; seed 派生 | BSD-like 代码 / 权重非商业研究 | 本基线未执行（无 GPU），自动回退至确定性螺旋束生成器并记录于 generation_log.json |
 | ProteinMPNN | 本地 checkout（vanilla 权重） | M05 序列设计（适配器 `sequence_design/design.py::ProteinMPNNAdapter`） | 每骨架 3 条序列; 禁止 Cys | MIT 代码 / 权重非商业研究 | 本基线未执行，回退至径向分层两亲性设计器并记录 |
-| AlphaFold2-Multimer / ColabFold / Boltz-2 | AF2 权重未随附；Boltz-2 checkpoint 在服务器 `~/.boltz` | M06/M07 复合物复核预测（适配器接口 `configs/tools.yaml` predictors） | — | AF2 非商业；Boltz source-available | 未执行；代理指标显式标注，GPU 环境可插拔复算 |
+| Boltz-2 | 2.0.3（boltz conda env，torch 2.5.1+cu121；checkpoint 在服务器 `~/.boltz`） | M05 单体折叠 + M06 复合物**独立实测复算**（适配器 `src/trop2_design/prediction/boltz_adapter.py`；CPU 管理节点经 SSH 派发至 GPU 节点 gn1，NFS 共享输入输出） | 自序列 MSA 离线模式（无需 MSA 服务器）；sampling 200 / recycling 3；seed=resources.seed；自动选空闲显存 GPU | Boltz source-available（非商业研究） | **已实际执行**（GPU 冒烟：实测 ipTM/pLDDT/界面 PAE/T88 接触替换代理值，metric_source=measured 全程标注；速率 ~90s/单体、~110s/复合物） |
+| AlphaFold2-Multimer / ColabFold | 权重未随附 | 备选复合物预测器（`configs/tools.yaml` predictors 接口，与 Boltz 可互换） | — | AF2 非商业 | 未执行（Boltz-2 已作为实测预测器） |
 | Foldseek / MMseqs2 | 未安装 | M07 脱靶筛查 | — | GPL-3 | 未执行，结果标注 review（不静默置零） |
 | NetMHCIIpan 4.x | 未安装 | M09 MHC-II 呈递风险 | — | 学术许可 | 未执行，使用确定性倾向性代理并标注 |
 

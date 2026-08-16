@@ -18,7 +18,7 @@ from typing import Callable
 from ..schemas.results import RunManifest, StageStatus, utcnow
 from ..io import content_hash, sha256_file, write_json
 
-CODE_VERSION = "1.0.0"
+CODE_VERSION = "1.1.0"
 
 
 def git_commit(repo: Path) -> str:

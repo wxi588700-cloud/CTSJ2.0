@@ -121,7 +121,15 @@ def run(ctx) -> None:
     agg = pos[pos.state_id == "AGGREGATE"]
     shortlist = agg[agg.positive_state_pass_rate > 0]
     if shortlist.empty:
-        raise RuntimeError("no positive-passing candidates for negative design")
+        # valid outcome (measured predictor rejected all designs): emit empty
+        # tables so M10 can still produce the full rejection audit report
+        pd.DataFrame(columns=["candidate_id", "design_name", "negative_state",
+                              "risk", "metric_source"]).to_csv(
+            out / "negative_state_metrics.csv", index=False)
+        pd.DataFrame(columns=["candidate_id", "screen", "hit", "risk", "note"]).to_csv(
+            out / "offtarget_hits.csv", index=False)
+        ctx.state["negative"] = []
+        return
 
     registry = read_json(out / "target_registry.json")
 

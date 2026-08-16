@@ -1,0 +1,223 @@
+{
+  "run_id": "run_20260816_133902",
+  "created": "2026-08-16T05:39:03+00:00",
+  "git_commit": "16e11f0308b555e2961d062545b89268c2822adc",
+  "package_version": "1.0.0",
+  "config_hash": "93e51debb52bcdf1",
+  "config_copy": {
+    "project": {
+      "name": "trop2_cis_dimer_inhibitor_v1",
+      "species": "Homo_sapiens"
+    },
+    "target": {
+      "name": "TROP2",
+      "uniprot_id": "P09758",
+      "gene": "TACSTD2",
+      "species": "Homo sapiens",
+      "sequence_fasta": "/home/protein_design2026/trop2_cis-dimer_inhibitor/data/raw/fasta/TROP2_human.fasta",
+      "cis_structure": {
+        "path": "/home/protein_design2026/trop2_cis-dimer_inhibitor/data/raw/pdb/7E5N.cif",
+        "chain": "A",
+        "role": "cis_assembly"
+      },
+      "trans_structure": {
+        "path": "/home/protein_design2026/trop2_cis-dimer_inhibitor/data/raw/pdb/7E5M.cif",
+        "chain": "A",
+        "role": "trans_assembly"
+      },
+      "alternate_structure": {
+        "path": "/home/protein_design2026/trop2_cis-dimer_inhibitor/data/raw/pdb/7PEE.cif",
+        "chain": "A",
+        "role": "ecd_monocistronic"
+      },
+      "cleavage": {
+        "left_residue": "R87",
+        "right_residue": "T88",
+        "preserve_disulfides": [
+          [
+            "C73",
+            "C108"
+          ]
+        ],
+        "left_terminal_state": "COO-",
+        "right_terminal_state": "NH3+",
+        "numbering": "author"
+      },
+      "glycosylation_sites": [
+        33,
+        120,
+        168,
+        184
+      ],
+      "glycan_exclusion_radius": 12.0,
+      "membrane_clearance": 8.0
+    },
+    "design": {
+      "binder_length": [
+        60,
+        120
+      ],
+      "generator": "rfdiffusion",
+      "hotspot_mode": "t88_neo_n_terminus",
+      "hotspot_radius": 10.0,
+      "n_designs_per_scaffold": 3,
+      "max_candidates": 24,
+      "import_fasta": null,
+      "import_pdb_dir": null,
+      "fixed_interface_positions": [],
+      "forbidden_aa": [
+        "C"
+      ],
+      "allowed_aa": null
+    },
+    "negatives": {
+      "targets": [
+        "intact_trop2_cis",
+        "intact_trop2_trans",
+        "human_epcam"
+      ],
+      "epcam_structure": "/home/protein_design2026/trop2_cis-dimer_inhibitor/data/raw/pdb/4MZV.cif",
+      "epcam_uniprot": "P16422",
+      "epcam_fasta": "/home/protein_design2026/trop2_cis-dimer_inhibitor/data/raw/fasta/EpCAM_human.fasta",
+      "surfaceome_screen": false
+    },
+    "ranking": {
+      "hard_filter_profile": "v1_strict",
+      "metrics_profile": "metrics_v1",
+      "method": "pareto",
+      "diversity_cluster_identity": 0.7,
+      "max_per_family": 3,
+      "export_top_n": 24,
+      "uncertainty_lambda": 0.5,
+      "robust_positive_quantile": 0.1
+    },
+    "resources": {
+      "seed": 20260816,
+      "max_cpu": 8,
+      "gpu_required": false,
+      "max_residues_per_predict": 1200,
+      "allow_proxy_metrics": true
+    }
+  },
+  "seed": 20260816,
+  "input_hashes": {
+    "trop2_fasta": "b82b280013b515fd176c7bc3228f5ca3b5cb185971a3683e3ea4522ad1ffc96a",
+    "cis_structure": "92986b793450d722cfa23ee731fdcd362b0199ada7dfebd0c0f8f79e51c8d597",
+    "trans_structure": "6950d32908f61322500b0254a92e7a04788f01f6771cd2c843eb8669e6b2c04d",
+    "alternate_structure": "57b7d2cca77f5f6500503fe1c1e7e13334fe9ebbe770582144f9a7e9f3df1ca8",
+    "epcam_structure": "71d1f8c6b6721c513edac0e0cec85c11598a6406c39559fb0748d9728f1f0ed0",
+    "epcam_fasta": "0e7996ad4185a918e982b6f4f657cc661bc01f20eade93c1f3db72c8f47bbc19"
+  },
+  "tool_versions": {
+    "python": "3.11.15",
+    "package": "1.0.0",
+    "rfdiffusion": "local-checkout",
+    "proteinmpnn": "local-checkout",
+    "predictor:af2_multimer": "af2_multimer",
+    "predictor:boltz": "boltz"
+  },
+  "licenses": {
+    "rfdiffusion": "RFdiffusion (BSD-like, non-commercial weights)",
+    "proteinmpnn": "MIT (weights: non-commercial research)",
+    "predictor:af2_multimer": "AlphaFold license (non-commercial)",
+    "predictor:boltz": "Boltz source-available"
+  },
+  "stages": [
+    {
+      "stage": "M01_target_ingestion",
+      "status": "ok",
+      "cache_key": "f3629d88323f4bda",
+      "started": "2026-08-16T05:39:03+00:00",
+      "finished": "2026-08-16T05:39:04+00:00",
+      "duration_s": 0.69,
+      "note": ""
+    },
+    {
+      "stage": "M02_cleaved_states",
+      "status": "ok",
+      "cache_key": "4e4b6d56a5e1387e",
+      "started": "2026-08-16T05:39:04+00:00",
+      "finished": "2026-08-16T05:39:04+00:00",
+      "duration_s": 0.467,
+      "note": ""
+    },
+    {
+      "stage": "M03_epitope",
+      "status": "ok",
+      "cache_key": "47af742903964549",
+      "started": "2026-08-16T05:39:04+00:00",
+      "finished": "2026-08-16T05:39:12+00:00",
+      "duration_s": 8.305,
+      "note": ""
+    },
+    {
+      "stage": "M04_generate",
+      "status": "ok",
+      "cache_key": "d48265b284e3919b",
+      "started": "2026-08-16T05:39:12+00:00",
+      "finished": "2026-08-16T05:39:29+00:00",
+      "duration_s": 16.346,
+      "note": ""
+    },
+    {
+      "stage": "M05_sequence_design",
+      "status": "ok",
+      "cache_key": "94e8801dca6ca86d",
+      "started": "2026-08-16T05:39:29+00:00",
+      "finished": "2026-08-16T05:39:29+00:00",
+      "duration_s": 0.186,
+      "note": ""
+    },
+    {
+      "stage": "M06_positive_state",
+      "status": "ok",
+      "cache_key": "b88873030cb4d2cd",
+      "started": "2026-08-16T05:39:29+00:00",
+      "finished": "2026-08-16T05:42:50+00:00",
+      "duration_s": 201.343,
+      "note": ""
+    },
+    {
+      "stage": "M07_negative_state",
+      "status": "ok",
+      "cache_key": "ab496b41bc499e63",
+      "started": "2026-08-16T05:42:50+00:00",
+      "finished": "2026-08-16T05:45:01+00:00",
+      "duration_s": 131.083,
+      "note": ""
+    },
+    {
+      "stage": "M08_mechanism",
+      "status": "ok",
+      "cache_key": "296b81e2fcd2a1e1",
+      "started": "2026-08-16T05:45:01+00:00",
+      "finished": "2026-08-16T05:45:02+00:00",
+      "duration_s": 0.321,
+      "note": ""
+    },
+    {
+      "stage": "M09_developability",
+      "status": "ok",
+      "cache_key": "25729b0a3cc73d05",
+      "started": "2026-08-16T05:45:02+00:00",
+      "finished": "2026-08-16T05:45:02+00:00",
+      "duration_s": 0.055,
+      "note": ""
+    },
+    {
+      "stage": "M10_ranking",
+      "status": "ok",
+      "cache_key": "c9be6b6b4aa91733",
+      "started": "2026-08-16T05:45:02+00:00",
+      "finished": "2026-08-16T05:45:02+00:00",
+      "duration_s": 0.422,
+      "note": ""
+    }
+  ],
+  "failures": [],
+  "platform": {
+    "python": "3.11.15",
+    "os": "Linux-6.8.0-49-generic-x86_64-with-glibc2.35",
+    "machine": "x86_64"
+  }
+}

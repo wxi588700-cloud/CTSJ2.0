@@ -1,0 +1,305 @@
+{
+  "cleavage": {
+    "left_residue": "R87",
+    "right_residue": "T88",
+    "preserve_disulfides": [
+      [
+        "C73",
+        "C108"
+      ]
+    ],
+    "left_terminal_state": "COO-",
+    "right_terminal_state": "NH3+",
+    "numbering": "author"
+  },
+  "overlap_tolerance_A3": 120.0,
+  "states": [
+    {
+      "state_id": "cleaved_01",
+      "kind": "cleaved",
+      "source_structure": "7E5N",
+      "source_chain": "A",
+      "peptide_bond_left_right": false,
+      "left_terminal": "R87 new C-terminus COO-",
+      "right_terminal": "T88 new N-terminus NH3+",
+      "chains": [
+        "NFR",
+        "BODY"
+      ],
+      "residues": 237,
+      "disulfides": [
+        [
+          34,
+          53
+        ],
+        [
+          36,
+          66
+        ],
+        [
+          44,
+          55
+        ],
+        [
+          73,
+          108
+        ],
+        [
+          119,
+          125
+        ],
+        [
+          127,
+          145
+        ]
+      ],
+      "required_disulfides_present": true,
+      "max_clash_overlap": 23.7,
+      "min_nonbonded_distance": 2.03,
+      "passed": true,
+      "failures": [],
+      "transformations": [
+        "identity (cleaved, unrelaxed)"
+      ]
+    },
+    {
+      "state_id": "cleaved_02",
+      "kind": "cleaved",
+      "source_structure": "7E5N",
+      "source_chain": "A",
+      "peptide_bond_left_right": false,
+      "left_terminal": "R87 new C-terminus COO-",
+      "right_terminal": "T88 new N-terminus NH3+",
+      "chains": [
+        "NFR",
+        "BODY"
+      ],
+      "residues": 237,
+      "disulfides": [
+        [
+          34,
+          53
+        ],
+        [
+          36,
+          66
+        ],
+        [
+          44,
+          55
+        ],
+        [
+          73,
+          108
+        ],
+        [
+          119,
+          125
+        ],
+        [
+          127,
+          145
+        ]
+      ],
+      "required_disulfides_present": true,
+      "max_clash_overlap": 22.56,
+      "min_nonbonded_distance": 2.03,
+      "passed": true,
+      "failures": [],
+      "transformations": [
+        "NFR hinge -0.6 deg; BODY hinge +6.5 deg"
+      ]
+    },
+    {
+      "state_id": "cleaved_03",
+      "kind": "cleaved",
+      "source_structure": "7E5N",
+      "source_chain": "A",
+      "peptide_bond_left_right": false,
+      "left_terminal": "R87 new C-terminus COO-",
+      "right_terminal": "T88 new N-terminus NH3+",
+      "chains": [
+        "NFR",
+        "BODY"
+      ],
+      "residues": 237,
+      "disulfides": [
+        [
+          34,
+          53
+        ],
+        [
+          36,
+          66
+        ],
+        [
+          44,
+          55
+        ],
+        [
+          73,
+          108
+        ],
+        [
+          119,
+          125
+        ],
+        [
+          127,
+          145
+        ]
+      ],
+      "required_disulfides_present": true,
+      "max_clash_overlap": 38.42,
+      "min_nonbonded_distance": 2.03,
+      "passed": true,
+      "failures": [],
+      "transformations": [
+        "NFR hinge -2.7 deg; BODY hinge -6.2 deg"
+      ]
+    },
+    {
+      "state_id": "cleaved_04",
+      "kind": "cleaved",
+      "source_structure": "7E5N",
+      "source_chain": "A",
+      "peptide_bond_left_right": false,
+      "left_terminal": "R87 new C-terminus COO-",
+      "right_terminal": "T88 new N-terminus NH3+",
+      "chains": [
+        "NFR",
+        "BODY"
+      ],
+      "residues": 237,
+      "disulfides": [
+        [
+          34,
+          53
+        ],
+        [
+          36,
+          66
+        ],
+        [
+          44,
+          55
+        ],
+        [
+          73,
+          108
+        ],
+        [
+          119,
+          125
+        ],
+        [
+          127,
+          145
+        ]
+      ],
+      "required_disulfides_present": true,
+      "max_clash_overlap": 35.43,
+      "min_nonbonded_distance": 2.03,
+      "passed": true,
+      "failures": [],
+      "transformations": [
+        "NFR hinge +0.1 deg; BODY hinge -3.5 deg"
+      ]
+    },
+    {
+      "state_id": "cleaved_05",
+      "kind": "cleaved",
+      "source_structure": "7E5N",
+      "source_chain": "A",
+      "peptide_bond_left_right": false,
+      "left_terminal": "R87 new C-terminus COO-",
+      "right_terminal": "T88 new N-terminus NH3+",
+      "chains": [
+        "NFR",
+        "BODY"
+      ],
+      "residues": 237,
+      "disulfides": [
+        [
+          34,
+          53
+        ],
+        [
+          36,
+          66
+        ],
+        [
+          44,
+          55
+        ],
+        [
+          73,
+          108
+        ],
+        [
+          119,
+          125
+        ],
+        [
+          127,
+          145
+        ]
+      ],
+      "required_disulfides_present": true,
+      "max_clash_overlap": 23.23,
+      "min_nonbonded_distance": 2.03,
+      "passed": true,
+      "failures": [],
+      "transformations": [
+        "NFR hinge -0.8 deg; BODY hinge +0.7 deg"
+      ]
+    },
+    {
+      "state_id": "intact_01",
+      "kind": "intact",
+      "source_structure": "7E5N",
+      "source_chain": "A",
+      "peptide_bond_left_right": true,
+      "left_terminal": "intact internal peptide bond",
+      "right_terminal": "intact internal peptide bond",
+      "chains": [
+        "TROP2"
+      ],
+      "residues": 237,
+      "disulfides": [
+        [
+          34,
+          53
+        ],
+        [
+          36,
+          66
+        ],
+        [
+          44,
+          55
+        ],
+        [
+          73,
+          108
+        ],
+        [
+          119,
+          125
+        ],
+        [
+          127,
+          145
+        ]
+      ],
+      "required_disulfides_present": true,
+      "max_clash_overlap": 0.0,
+      "min_nonbonded_distance": 99.0,
+      "passed": true,
+      "failures": [],
+      "transformations": [
+        "none (intact control)"
+      ]
+    }
+  ]
+}

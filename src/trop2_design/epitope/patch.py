@@ -201,7 +201,16 @@ def run(ctx) -> None:
         fh.write("# M03 suggested hotspot residues for binder design\n")
         fh.write("# ranked by proximity x exposure x consistency; T88 always included\n")
         fh.write(f"{cfg.target.cleavage.right_residue}\n")
+        _, right_num = parse_residue_id(cfg.target.cleavage.right_residue)
         for name, sc in hotspots:
+            # hotspots entries are 3-letter+number (e.g. THR88); skip the
+            # duplicate of the mandatory neo-N-terminus entry above
+            try:
+                num = int("".join(ch for ch in name if ch.isdigit()))
+            except ValueError:
+                num = None
+            if num == right_num:
+                continue
             fh.write(f"{name}\t{sc}\n")
 
     import pandas as pd

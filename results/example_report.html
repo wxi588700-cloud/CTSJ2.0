@@ -1,0 +1,1377 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>TROP2 cleaved-state binder design report - run_20260816_133902</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", Roboto, "Noto Sans SC", sans-serif;
+         margin: 0; background: #f6f7f9; color: #1c2733; }
+  header { background: #0d3b66; color: white; padding: 24px 32px; }
+  header h1 { margin: 0 0 6px 0; font-size: 22px; }
+  header .meta { opacity: .85; font-size: 13px; }
+  main { padding: 24px 32px; max-width: 1200px; margin: auto; }
+  section { background: white; border-radius: 10px; padding: 20px 24px;
+            margin-bottom: 20px; box-shadow: 0 1px 3px rgba(16,36,64,.08); }
+  h2 { margin-top: 0; font-size: 17px; color: #0d3b66; border-bottom: 2px solid #e8ecf1; padding-bottom: 8px;}
+  table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  th { background: #eef2f7; text-align: left; padding: 6px 8px; border-bottom: 2px solid #d5dce4; }
+  td { padding: 6px 8px; border-bottom: 1px solid #edf0f3; }
+  tr.pass td { background: #f0f9f1; }
+  tr.reject td { background: #fdf0f0; }
+  tr.review td { background: #fff8e6; }
+  .badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; }
+  .badge.pass { background:#d4f1d9; color:#1c6b2d; }
+  .badge.reject { background:#fadbd8; color:#9c1f14; }
+  .badge.review { background:#fdf3d0; color:#8a6d00; }
+  .note { color:#5b6b7a; font-size:12.5px; }
+  .warn { color:#9c4a00; font-size:12.5px; }
+  code { background:#f0f3f6; padding:1px 5px; border-radius:4px; font-size:12px; }
+  .grid { display:grid; grid-template-columns: repeat(auto-fill,minmax(340px,1fr)); gap:14px; }
+  .card { border:1px solid #e3e9ef; border-radius:8px; padding:12px 14px; }
+  .card h3 { margin:0 0 8px 0; font-size:14px; color:#0d3b66; }
+  .kv { font-size:12px; display:flex; justify-content:space-between; padding:2px 0; }
+  .kv b { font-weight:600; }
+  footer { padding: 18px 32px 40px; color:#7b8794; font-size:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>TROP2 R87-T88 裂解态小蛋白 binder 设计报告</h1>
+  <div class="meta">run run_20260816_133902 · seed 20260816 · config 93e51debb52bcdf1
+  · generated 2026-08-16 13:45</div>
+</header>
+<main>
+
+<section>
+  <h2>1. 运行摘要</h2>
+  <table>
+    <tr><th>候选总数</th><td>72</td></tr>
+    <tr><th>硬门槛通过 (pass)</th><td>6</td></tr>
+    <tr><th>硬门槛淘汰 (reject)</th><td>0</td></tr>
+    <tr><th>需人工复核 (review)</th><td>66</td></tr>
+    <tr><th>结构家族数（序列一致性 0.7）</th><td>72</td></tr>
+    <tr><th>推荐实验短名单</th><td>6 个（单家族上限 3）</td></tr>
+  </table>
+  <p class="note">硬门槛来自 profile <code>v1_strict</code>；加权分仅在同一 Pareto
+  层内辅助排序，任何高亲和预测都不能抵消完整 TROP2 / EpCAM 交叉结合（PRD 12.3）。</p>
+</section>
+
+<section>
+  <h2>2. 推荐实验候选短名单</h2>
+  
+  <table>
+    <tr><th>排名</th><th>Candidate</th><th>设计序列</th><th>长度</th>
+        <th>Pareto层</th><th>robust_selectivity</th><th>T88接触占有率</th>
+        <th>intact风险</th><th>EpCAM风险</th><th>family</th></tr>
+    
+    <tr class="pass">
+      <td>1</td>
+      <td><code>CAND-176DD8E2/CAND-176DD8E2_h0</code></td>
+      <td style="font-family:monospace;font-size:11px;max-width:260px;word-break:break-all;">NDNNNKYLAFMFFAMSVIAQYQEDNTTWTHFMFAFLMAFLLVYH…</td>
+      <td>60</td>
+      <td>0.0</td>
+      <td>0.440</td>
+      <td>0.20</td>
+      <td>0.20</td>
+      <td>0.21</td>
+      <td>48</td>
+    </tr>
+    
+    <tr class="pass">
+      <td>2</td>
+      <td><code>CAND-176DD8E2/CAND-176DD8E2_h2</code></td>
+      <td style="font-family:monospace;font-size:11px;max-width:260px;word-break:break-all;">EQTNNESMHLMFIMISAIWTWEDTSSQYATVFVVVLVVAALMTA…</td>
+      <td>60</td>
+      <td>0.0</td>
+      <td>0.440</td>
+      <td>0.20</td>
+      <td>0.20</td>
+      <td>0.21</td>
+      <td>50</td>
+    </tr>
+    
+    <tr class="pass">
+      <td>3</td>
+      <td><code>CAND-D5210A16/CAND-D5210A16_h0</code></td>
+      <td style="font-family:monospace;font-size:11px;max-width:260px;word-break:break-all;">QNDKKNDSNSAHTTSHAAYSMMALFMIVLVAMAMFIAAIAIVFS…</td>
+      <td>116</td>
+      <td>0.0</td>
+      <td>0.373</td>
+      <td>0.20</td>
+      <td>0.20</td>
+      <td>0.21</td>
+      <td>6</td>
+    </tr>
+    
+    <tr class="pass">
+      <td>4</td>
+      <td><code>CAND-176DD8E2/CAND-176DD8E2_h1</code></td>
+      <td style="font-family:monospace;font-size:11px;max-width:260px;word-break:break-all;">NTSQDTHAHVMFFFFSAIHSTKNTQDTTHAIMMFFMAAVMMLHH…</td>
+      <td>60</td>
+      <td>1.0</td>
+      <td>0.440</td>
+      <td>0.20</td>
+      <td>0.20</td>
+      <td>0.21</td>
+      <td>49</td>
+    </tr>
+    
+    <tr class="pass">
+      <td>5</td>
+      <td><code>CAND-D5210A16/CAND-D5210A16_h2</code></td>
+      <td style="font-family:monospace;font-size:11px;max-width:260px;word-break:break-all;">ETNNNDKDKQHTTWWTSTYAIFFVAAMAMFFILFAVIAALFVIY…</td>
+      <td>116</td>
+      <td>1.0</td>
+      <td>0.373</td>
+      <td>0.20</td>
+      <td>0.20</td>
+      <td>0.21</td>
+      <td>8</td>
+    </tr>
+    
+    <tr class="pass">
+      <td>6</td>
+      <td><code>CAND-D5210A16/CAND-D5210A16_h1</code></td>
+      <td style="font-family:monospace;font-size:11px;max-width:260px;word-break:break-all;">NSETDTTTKKTYSYAHAAAAIIFIVAIFVMLFMLAMFVFMAVFT…</td>
+      <td>116</td>
+      <td>2.0</td>
+      <td>0.373</td>
+      <td>0.20</td>
+      <td>0.20</td>
+      <td>0.21</td>
+      <td>7</td>
+    </tr>
+    
+  </table>
+  
+</section>
+
+<section>
+  <h2>3. 候选指标总表（原始值 + 状态）</h2>
+  <table>
+    <tr><th>Candidate</th><th>状态</th><th>pass率</th><th>T88接触</th><th>iptm(robust)</th>
+        <th>intact</th><th>epcam</th><th>cis阻断</th><th>trans遮挡</th>
+        <th>膜/糖碰撞</th><th>聚集</th><th>pLDDT</th><th>不确定性</th></tr>
+    
+    <tr class="review">
+      <td><code>CAND-44DB0C43</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.30</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>95</td>
+      <td>0.147</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-44DB0C43</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.30</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>95</td>
+      <td>0.147</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-44DB0C43</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.30</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>95</td>
+      <td>0.147</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-6E7FE939</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.70</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>95</td>
+      <td>0.022</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-6E7FE939</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.70</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>95</td>
+      <td>0.022</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-6E7FE939</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.70</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>95</td>
+      <td>0.022</td>
+    </tr>
+    
+    <tr class="pass">
+      <td><code>CAND-D5210A16</code></td>
+      <td><span class="badge pass">pass</span></td>
+      <td>0.20</td>
+      <td>✓</td>
+      <td>0.71</td>
+      <td>0.20</td>
+      <td>0.21</td>
+      <td>0.00</td>
+      <td>0.00</td>
+      <td>0.0</td>
+      <td>0.51</td>
+      <td>97</td>
+      <td>0.043</td>
+    </tr>
+    
+    <tr class="pass">
+      <td><code>CAND-D5210A16</code></td>
+      <td><span class="badge pass">pass</span></td>
+      <td>0.20</td>
+      <td>✓</td>
+      <td>0.71</td>
+      <td>0.20</td>
+      <td>0.21</td>
+      <td>0.00</td>
+      <td>0.00</td>
+      <td>0.0</td>
+      <td>0.52</td>
+      <td>95</td>
+      <td>0.043</td>
+    </tr>
+    
+    <tr class="pass">
+      <td><code>CAND-D5210A16</code></td>
+      <td><span class="badge pass">pass</span></td>
+      <td>0.20</td>
+      <td>✓</td>
+      <td>0.71</td>
+      <td>0.20</td>
+      <td>0.21</td>
+      <td>0.00</td>
+      <td>0.00</td>
+      <td>0.0</td>
+      <td>0.51</td>
+      <td>96</td>
+      <td>0.043</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-14AF3802</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.47</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>97</td>
+      <td>0.124</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-14AF3802</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.47</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>95</td>
+      <td>0.124</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-14AF3802</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.47</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>96</td>
+      <td>0.124</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-27BCA21C</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.74</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>95</td>
+      <td>0.013</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-27BCA21C</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.74</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>95</td>
+      <td>0.013</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-27BCA21C</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.74</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>93</td>
+      <td>0.013</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-5D216925</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.60</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>94</td>
+      <td>0.053</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-5D216925</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.60</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>96</td>
+      <td>0.053</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-5D216925</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.60</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>95</td>
+      <td>0.053</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-463D75FA</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.40</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>96</td>
+      <td>0.188</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-463D75FA</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.40</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>95</td>
+      <td>0.188</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-463D75FA</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.40</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>95</td>
+      <td>0.188</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-1DE6256C</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.33</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>97</td>
+      <td>0.167</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-1DE6256C</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.33</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>94</td>
+      <td>0.167</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-1DE6256C</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.33</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>97</td>
+      <td>0.167</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-7DC8F7CF</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.63</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>94</td>
+      <td>0.082</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-7DC8F7CF</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.63</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>95</td>
+      <td>0.082</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-7DC8F7CF</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.63</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>96</td>
+      <td>0.082</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-D21B3829</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.53</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>96</td>
+      <td>0.051</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-D21B3829</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.53</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>94</td>
+      <td>0.051</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-D21B3829</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.53</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>95</td>
+      <td>0.051</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-8D0EEC19</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.65</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>96</td>
+      <td>0.067</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-8D0EEC19</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.65</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>95</td>
+      <td>0.067</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-8D0EEC19</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.65</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>96</td>
+      <td>0.067</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-3C5A31C3</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.78</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>96</td>
+      <td>0.031</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-3C5A31C3</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.78</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>95</td>
+      <td>0.031</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-3C5A31C3</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.78</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>96</td>
+      <td>0.031</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-E6DBDBCD</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.57</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>96</td>
+      <td>0.042</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-E6DBDBCD</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.57</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>95</td>
+      <td>0.042</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-E6DBDBCD</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.57</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>95</td>
+      <td>0.042</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-4D9E4B70</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.74</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>95</td>
+      <td>0.027</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-4D9E4B70</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.74</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>96</td>
+      <td>0.027</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-4D9E4B70</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.74</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>95</td>
+      <td>0.027</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-EC9F703E</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.67</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>95</td>
+      <td>0.036</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-EC9F703E</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.67</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>97</td>
+      <td>0.036</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-EC9F703E</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.67</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>96</td>
+      <td>0.036</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-0EB65FF3</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.72</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>94</td>
+      <td>0.032</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-0EB65FF3</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.72</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>94</td>
+      <td>0.032</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-0EB65FF3</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.72</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>94</td>
+      <td>0.032</td>
+    </tr>
+    
+    <tr class="pass">
+      <td><code>CAND-176DD8E2</code></td>
+      <td><span class="badge pass">pass</span></td>
+      <td>0.20</td>
+      <td>✓</td>
+      <td>0.79</td>
+      <td>0.20</td>
+      <td>0.21</td>
+      <td>0.00</td>
+      <td>0.00</td>
+      <td>0.0</td>
+      <td>0.51</td>
+      <td>95</td>
+      <td>0.020</td>
+    </tr>
+    
+    <tr class="pass">
+      <td><code>CAND-176DD8E2</code></td>
+      <td><span class="badge pass">pass</span></td>
+      <td>0.20</td>
+      <td>✓</td>
+      <td>0.79</td>
+      <td>0.20</td>
+      <td>0.21</td>
+      <td>0.00</td>
+      <td>0.00</td>
+      <td>0.0</td>
+      <td>0.51</td>
+      <td>95</td>
+      <td>0.020</td>
+    </tr>
+    
+    <tr class="pass">
+      <td><code>CAND-176DD8E2</code></td>
+      <td><span class="badge pass">pass</span></td>
+      <td>0.20</td>
+      <td>✓</td>
+      <td>0.79</td>
+      <td>0.20</td>
+      <td>0.21</td>
+      <td>0.00</td>
+      <td>0.00</td>
+      <td>0.0</td>
+      <td>0.52</td>
+      <td>95</td>
+      <td>0.020</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-6C3904D4</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.70</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>95</td>
+      <td>0.013</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-6C3904D4</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.70</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>95</td>
+      <td>0.013</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-6C3904D4</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.70</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>97</td>
+      <td>0.013</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-8F52B47F</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.60</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>96</td>
+      <td>0.116</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-8F52B47F</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.60</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>95</td>
+      <td>0.116</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-8F52B47F</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.60</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>96</td>
+      <td>0.116</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-BF0642A5</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.34</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>95</td>
+      <td>0.079</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-BF0642A5</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.34</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>96</td>
+      <td>0.079</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-BF0642A5</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.34</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>97</td>
+      <td>0.079</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-DE8CCE81</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.49</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>96</td>
+      <td>0.137</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-DE8CCE81</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.49</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>95</td>
+      <td>0.137</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-DE8CCE81</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.49</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>94</td>
+      <td>0.137</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-695ECFA5</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.42</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>95</td>
+      <td>0.122</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-695ECFA5</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.42</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>96</td>
+      <td>0.122</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-695ECFA5</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.42</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>95</td>
+      <td>0.122</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-7B6A069E</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.70</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>95</td>
+      <td>0.082</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-7B6A069E</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.70</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>93</td>
+      <td>0.082</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-7B6A069E</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.70</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>95</td>
+      <td>0.082</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-9C152232</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.66</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>93</td>
+      <td>0.008</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-9C152232</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.66</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>96</td>
+      <td>0.008</td>
+    </tr>
+    
+    <tr class="review">
+      <td><code>CAND-9C152232</code></td>
+      <td><span class="badge review">review</span></td>
+      <td>0.00</td>
+      <td>✗</td>
+      <td>0.66</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-1.00</td>
+      <td>-</td>
+      <td>-1.00</td>
+      <td>94</td>
+      <td>0.008</td>
+    </tr>
+    
+  </table>
+  <p class="warn">指标来源标注：本基线运行在无 GPU 环境使用确定性几何代理（metric_source=proxy），
+  结果仅用于流水线验证与相对排序；进入实验决策前必须在 GPU 环境用 AF2-Multimer/Boltz 复算。</p>
+</section>
+
+<section>
+  <h2>4. 淘汰原因（可追溯）</h2>
+  <p class="note">无淘汰记录。</p>
+  <div class="grid">
+  
+  </div>
+</section>
+
+<section>
+  <h2>5. 硬门槛与阈值（版本 v1_strict）</h2>
+  <table>
+    <tr><th>指标</th><th>规则</th><th>阈值</th><th>说明</th></tr>
+    
+    <tr><td><code>positive_state_pass_rate</code></td><td>&gt;=</td><td>0.2</td>
+        <td>cleaved-state complex not reproducibly predicted</td></tr>
+    
+    <tr><td><code>t88_contact</code></td><td>==</td><td>True</td>
+        <td>no direct T88 neo-N-terminus recognition</td></tr>
+    
+    <tr><td><code>intact_risk</code></td><td>&lt;=</td><td>0.55</td>
+        <td>high-confidence binding to intact TROP2</td></tr>
+    
+    <tr><td><code>epcam_risk</code></td><td>&lt;=</td><td>0.55</td>
+        <td>high-confidence binding to EpCAM</td></tr>
+    
+    <tr><td><code>glycan_membrane_clash</code></td><td>&lt;=</td><td>0.0</td>
+        <td>unacceptable membrane/glycan collision</td></tr>
+    
+    <tr><td><code>fold_plddt</code></td><td>&gt;=</td><td>70.0</td>
+        <td>binder monomer does not fold confidently</td></tr>
+    
+    <tr><td><code>aggregation_risk</code></td><td>&lt;=</td><td>0.7</td>
+        <td>obvious self-aggregation tendency</td></tr>
+    
+    <tr><td><code>trans_occlusion</code></td><td>&lt;=</td><td>0.4</td>
+        <td>binder sterically occludes the trans interface</td></tr>
+    
+  </table>
+</section>
+
+<section>
+  <h2>6. 建议实验验证方案（PRD P5 交接）</h2>
+  <ul>
+    <li>对短名单候选进行表达纯化，并行 BLI/SPR 测定对<b>裂解态 TROP2</b>的亲和力。</li>
+    <li>必须包含的对照：<b>完整 TROP2（WT）</b>、<b>R87A/T88A 裂解受阻突变体</b>、<b>EpCAM ECD</b>，
+        以验证裂解态选择性（负状态硬门槛对应实验）。</li>
+    <li>细胞实验：裂解态高 vs 低的肿瘤细胞系染色，评估 cis 组装下降与 trans 组装兼容性。</li>
+    <li>可开发性跟进：聚集（SEC-MALS）、热稳定性（DSF）、血清稳定性、MHC-II 验证性检测。</li>
+  </ul>
+</section>
+
+<section>
+  <h2>7. 局限与解释边界</h2>
+  <ul>
+    <li>裂解态真实构象未知：构象集采样 + 最差状态评分只是缓解（PRD 风险表）。</li>
+    <li>计算分数不能替代真实 KD/kon/koff；结论必须经 BLI/SPR 验证。</li>
+    <li>免疫原性为风险排序，不得解读为"无免疫原性"；不输出人体半衰期结论。</li>
+    <li>本报告为研究级决策支持，不构成任何临床疗效或安全性结论。</li>
+  </ul>
+</section>
+
+</main>
+<footer>trop2_cis-dimer_inhibitor v1.0 · 生成于 2026-08-16 13:45 · 所有阈值可在 ranking profile 中版本化调整</footer>
+</body>
+</html>

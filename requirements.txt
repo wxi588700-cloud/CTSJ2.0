@@ -1,0 +1,13 @@
+# trop2_cis-dimer_inhibitor - Python 3.11 runtime dependencies
+# (pinned to the exact versions used to produce the submitted results)
+pydantic==2.13.4
+typer==0.27.1
+gemmi==0.7.5
+biopython==1.88
+numpy==2.2.6
+pandas==2.3.3
+scipy==1.17.1
+PyYAML==6.0.3
+Jinja2==3.1.6
+matplotlib==3.11.1
+tqdm==4.70.0

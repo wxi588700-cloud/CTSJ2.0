@@ -1,6 +1,6 @@
 # External algorithm locations (M00 tool registry).
 # Copy previously downloaded checkouts into ./external (git-ignored) with
-#   scripts/setup_external_tools.sh /home/protein_design2026/external
+#   scripts/setup_external_tools.sh /path/to/downloaded/checkouts
 # or point the paths directly at existing checkouts.
 #
 # LICENSE note (PRD NFR): RFdiffusion + ProteinMPNN weights are for

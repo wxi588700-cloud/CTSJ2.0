@@ -10,10 +10,16 @@ htmlcov/
 # A setup script copies them from a local source directory; they are never
 # committed to git (GitHub 100 MB file limit).
 external/
-models/
 weights/
+# model WEIGHTS are never committed; the models/ directory itself (Model Card,
+# third-party model inventory) IS part of the submission structure.
+models/*.pt
+models/*.ckpt
+models/*.pkl
+models/*.tar
 
-# Run outputs are reproducible artifacts; keep small curated examples only.
+# Run outputs are reproducible artifacts; curated examples live in results/
+# and logs/ which ARE committed.
 outputs/
 !outputs/.gitkeep
 
@@ -27,3 +33,6 @@ data/*/rfdiffusion_cache/
 *.swp
 .vscode/
 .idea/
+
+# notebook checkpoints
+.ipynb_checkpoints/

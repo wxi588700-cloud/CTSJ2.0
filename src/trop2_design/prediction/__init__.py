@@ -32,6 +32,24 @@ def build_boltz(predictor_spec, seed: int) -> BoltzPredictor | None:
                         spec.device = int(part.split("=", 1)[1])
                 except ValueError:
                     pass
+    # running ON the dispatch host itself -> execute locally (no ssh loopback)
+    if spec.ssh_host and _is_same_host(spec.ssh_host):
+        spec.ssh_host = None
     if not spec.available()[0]:
         return None
     return BoltzPredictor(spec)
+
+
+def _is_same_host(host: str) -> bool:
+    """True when ``host`` refers to the machine we are already on."""
+    import socket
+
+    try:
+        target = socket.gethostbyname(host)
+        local = socket.gethostbyname(socket.gethostname())
+        if target == local:
+            return True
+        # also accept 127.0.0.1 / localhost aliases
+        return target.startswith("127.")
+    except Exception:
+        return False

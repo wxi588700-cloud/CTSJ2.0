@@ -1,4 +1,4 @@
-"""Pydantic data models for the TROP2 cleaved-state binder design platform.
+"""Pydantic data models for the TROP2 cleaved-state cis-dimer inhibitor design platform (trop2_cis-dimer_inhibitor).
 
 Module numbering follows PRD v1.0 section 5/6.  All user-facing configuration
 models forbid unknown fields so that medical researchers get an explicit

@@ -1,4 +1,4 @@
-# trop2-binder-platform
+# trop2_cis-dimer_inhibitor
 
 **TROP2 裂解态（R87-T88）特异性小蛋白药物从头设计与多目标计算评估平台** —— PRD v1.0 的完整参考实现。
 
@@ -24,8 +24,8 @@
 
 ```bash
 # conda 环境（Python 3.11，PRD 5.2 工程约定）
-conda create -y -n trop2-platform python=3.11 pip
-conda activate trop2-platform
+conda create -y -n trop2-cis-dimer-inhibitor python=3.11 pip
+conda activate trop2-cis-dimer-inhibitor
 pip install -e ".[dev]"
 
 # 外部算法（复用之前下载的 checkout；不入库，超 GitHub 100MB 限制）

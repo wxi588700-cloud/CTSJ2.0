@@ -1,7 +1,7 @@
 # TROP2 cleaved-state binder design - project configuration (PRD 7.2)
 # Medical researchers edit ONLY this file; unknown fields are rejected.
 project:
-  name: trop2_cleaved_binder_v1
+  name: trop2_cis_dimer_inhibitor_v1
   species: Homo_sapiens
 
 target:

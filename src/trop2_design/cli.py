@@ -12,7 +12,7 @@ import typer
 
 app = typer.Typer(
     name="trop2",
-    help="TROP2 R87-T88 cleaved-state miniprotein binder design platform (PRD v1.0)",
+    help="trop2_cis-dimer_inhibitor - TROP2 R87-T88 cleaved-state cis-dimer inhibitor design platform (PRD v1.0)",
     no_args_is_help=True,
     add_completion=False,
 )

@@ -7,10 +7,10 @@
 #   B) You already created the empty private repo on github.com/new
 #      (no README) - then just run this script without GITHUB_TOKEN.
 #
-# Usage: scripts/push_to_github.sh [REPO_NAME]   (default: trop2-binder-platform)
+# Usage: scripts/push_to_github.sh [REPO_NAME]   (default: trop2_cis-dimer_inhibitor)
 set -euo pipefail
 
-REPO="${1:-trop2-binder-platform}"
+REPO="${1:-trop2_cis-dimer_inhibitor}"
 OWNER="qiuzh37"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 REMOTE="git@github.com:${OWNER}/${REPO}.git"
@@ -22,7 +22,7 @@ if [ -n "${GITHUB_TOKEN:-}" ]; then
     curl -fsS -X POST https://api.github.com/user/repos \
         -H "Authorization: Bearer ${GITHUB_TOKEN}" \
         -H "Accept: application/vnd.github+json" \
-        -d "{\"name\":\"${REPO}\",\"private\":true,\"description\":\"TROP2 R87-T88 cleaved-state miniprotein binder design platform (PRD v1.0)\"}" \
+        -d "{\"name\":\"${REPO}\",\"private\":true,\"description\":\"TROP2 R87-T88 cleaved-state cis-dimer inhibitor design platform (PRD v1.0)\"}" \
         | grep -E '"(full_name|private)"' | head -2 || true
 fi
 

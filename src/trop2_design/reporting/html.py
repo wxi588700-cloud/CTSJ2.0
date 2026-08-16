@@ -171,7 +171,7 @@ TEMPLATE = """<!DOCTYPE html>
 </section>
 
 </main>
-<footer>trop2-binder-platform v1.0 · 生成于 {{ generated }} · 所有阈值可在 ranking profile 中版本化调整</footer>
+<footer>trop2_cis-dimer_inhibitor v1.0 · 生成于 {{ generated }} · 所有阈值可在 ranking profile 中版本化调整</footer>
 </body>
 </html>
 """

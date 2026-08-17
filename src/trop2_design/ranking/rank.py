@@ -33,12 +33,22 @@ def _collect(out: Path) -> pd.DataFrame:
     mono = pd.read_csv(out / "monomer_metrics.csv")
 
     rows = []
+    # PRD v1.1 AC-26: outputs carry the target bundle id when present
+    bundle_id = ""
+    mf = out / "target_bundles" / "manifest.json"
+    if mf.exists():
+        import json as _json
+        try:
+            bundle_id = _json.loads(mf.read_text()).get("target_bundle_id", "")
+        except Exception:
+            bundle_id = ""
     neg_worst = neg[neg.negative_state == "WORST"].set_index(["candidate_id", "design_name"])
     for _, r in agg.iterrows():
         key = (r.candidate_id, r.design_name)
         row = {
             "candidate_id": r.candidate_id,
             "design_name": r.design_name,
+            "target_bundle_id": bundle_id,
             "positive_state_pass_rate": r.get("positive_state_pass_rate"),
             "t88_contact": bool(r.get("t88_contact_occupancy", 0) > 0),
             "t88_contact_occupancy": r.get("t88_contact_occupancy"),

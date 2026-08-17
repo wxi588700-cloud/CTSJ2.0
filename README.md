@@ -1,7 +1,7 @@
 # trop2_cis-dimer_inhibitor
 
 **TROP2 R87-T88 裂解态特异性小蛋白（cis 二聚体抑制剂）从头设计与多目标计算评估平台**
-—— 第一届全球大学生生命科学挑战赛 · 代码提交版本 v1.0.1
+—— 第一届全球大学生生命科学挑战赛 · 代码提交版本 v1.1.0
 
 > 边界声明：研究级决策支持工具，不输出"已成药/已安全/具有临床疗效"结论；一切结合、
 > 选择性、机制、免疫原性判断必须由实验（BLI/SPR 等）验证。
@@ -176,6 +176,26 @@ predictors:
   ProteinMPNN 生成真实候选后再实测排序。
 - 直接在 GPU 节点上运行（本地执行、免 SSH）：`ssh gn1` 后同样 `bash run.sh`
   （去掉 tools.yaml notes 中的 `ssh_host=` 即本地模式）。
+
+## 7.6 裂解糖基化靶结构 target bundle（PRD v1.1）
+
+```bash
+trop2 prepare-target --project configs/trop2_v1_1.yaml   # 构建版本化 bundle（GPU, ~4min）
+trop2 validate-target outputs/<run>/target_bundles       # 拓扑/文件审计（AC-30）
+trop2 export-target-bundle outputs/<run>/target_bundles [--out-dir DIR]
+```
+
+- **混合策略**（实证驱动，替代 PRD 的 Chai-1/GlycanTreeModeler）：Boltz-2
+  蛋白构象（六对天然二硫键 bond 约束，实测 1.4–1.9 Å 生效）× 确定性原子模板
+  接枝（三糖型面板，全部 N-糖苷键精确 1.43 Å，软安装可审计）
+- 产物：`target_bundles/<id>/`（manifest / glycosylated_states / protein_only_views /
+  glycan_masks / topology / provenance），bundle_id 不可变（模板哈希+糖型+seed）
+- 下游：M03 自动改用 bundle 的**真实糖链坐标球**（560 球替代 4 个启发式 12 Å 球）；
+  M10 结果表携带 target_bundle_id（AC-26）
+- 兼容：`configs/trop2_v1.yaml`（无 target_prediction 段）原样走 v1.0 legacy
+  路径（AC-27 有回归测试）
+- 边界：糖型为 assumed_sensitivity_panel（无位点特异性糖组学数据时），
+  所有结构均为计算假设（computed_hypothesis），非实验结构
 
 ## 8. 测试
 

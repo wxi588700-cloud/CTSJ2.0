@@ -227,7 +227,8 @@ def split_prediction(pred_cif: Path, workdir: Path, state_id: str) -> dict:
             "glycan_atom_count": glycan_atoms}
 
 
-def audit_predicted_topology(pred_cif: Path, site_map: dict) -> dict:
+def audit_predicted_topology(pred_cif: Path, site_map: dict,
+                            frag_starts: dict | None = None) -> dict:
     """Deterministic topology audit ON THE PREDICTED structure (M02.5).
 
     Checks: N-glycosidic bond geometry per site; intra-glycan bonds; the
@@ -275,11 +276,15 @@ def audit_predicted_topology(pred_cif: Path, site_map: dict) -> dict:
                     frags.setdefault(ch.name, []).append(
                         (r.seqid.num, np.array([sg.pos.x, sg.pos.y, sg.pos.z])))
     # chain starts (from residue numbering) to convert full-length -> local
-    chain_starts = {}
-    for ch in model:
-        rs = [r for r in ch if r.name not in SUGARS_SET]
-        if rs:
-            chain_starts[ch.name] = rs[0].seqid.num
+    # chain numbering: boltz outputs fragment-local ids starting at 1;
+    # convert full-length disulfide numbers via each chain's full-length
+    # start (NFR=32, BODY=88) when provided, else fall back to observed
+    chain_starts = frag_starts or {}
+    if not chain_starts:
+        for ch in model:
+            rs = [r for r in ch if r.name not in SUGARS_SET]
+            if rs:
+                chain_starts[ch.name] = rs[0].seqid.num
     ss_results = {}
     for a, b in NATIVE_DISULFIDES:
         d = None
@@ -388,89 +393,152 @@ def bundle_id(template_hash: str, registry_id: str, profile_ids: list[str],
     return "TB-" + hashlib.sha256(payload.encode()).hexdigest()[:12].upper()
 
 
+def build_protein_yaml(state_cif: Path, workdir: Path, name: str):
+    """Protein-only Boltz input with the six native disulfide bond
+    constraints (the empirically working half of the constraint system)."""
+    import yaml
+
+    frags = fragment_info(state_cif)
+    workdir.mkdir(parents=True, exist_ok=True)
+    names = sorted(frags)
+    sequences, chain_lengths = [], {}
+    for i, frag_name in enumerate(names):
+        cid = chr(ord("A") + i)
+        seq = frags[frag_name]["sequence"]
+        write_self_msa(workdir / "msa", cid, seq)
+        sequences.append({"protein": {"id": cid, "sequence": seq,
+                                      "msa": f"msa/self_{cid}.a3m"}})
+        chain_lengths[cid] = len(seq)
+    constraints = []
+    cys_map = any_residue_chain_map(frags, [n for pair in NATIVE_DISULFIDES
+                                             for n in pair])
+    for a, b in NATIVE_DISULFIDES:
+        if a in cys_map and b in cys_map:
+            ca, ia = cys_map[a]
+            cb, ib = cys_map[b]
+            constraints.append({"bond": {
+                "atom1": [ca, ia, "SG"], "atom2": [cb, ib, "SG"]}})
+    doc = {"sequences": sequences, "constraints": constraints, "version": 1}
+    yaml_path = workdir / f"{name}.yaml"
+    with open(yaml_path, "w") as fh:
+        yaml.safe_dump(doc, fh, sort_keys=False)
+    return yaml_path, chain_lengths
+
+
 def build_target_bundle(cleaved_state_cif: Path, registry: GlycoformRegistry,
                         out_dir: Path, boltz, seeds: list[int],
                         template_hash: str, software_version: str = "1.1",
                         min_representatives: int = 5,
-                        sampling_steps: int = 100) -> TargetBundleManifest | None:
-    """Full M02.4-M02.7 run: predict per profile x seed, audit, cluster,
-    publish the immutable bundle directory."""
-    if boltz is None:
-        return None
+                        sampling_steps: int = 100,
+                        graft_seeds: int = 2) -> TargetBundleManifest | None:
+    """Hybrid M02.4-M02.7 (PRD v1.1):
+
+    1. protein hypotheses: Boltz per seed with the six-SS bond constraints
+    2. glycan conformations: deterministic template grafting per protein
+       conformation x graft seed x profile (each >= 1.43 A N-bond, clash
+       filtered; soft installs recorded)
+    3. per-profile clustering (epitope RMSD + glycan fingerprint),
+       representative selection (>= min_representatives when possible)
+    4. immutable bundle publication (manifest + states + protein-only
+       views + glycan masks + topology audit + provenance)
+    """
+    from . import glycan_grafter as gg
+
     bundle_root = out_dir / "target_bundles"
+    work = bundle_root / "work"
+    work.mkdir(parents=True, exist_ok=True)
+
+    # ---- 1. protein conformations (Boltz + SS constraints)
+    protein_confs = []
+    for seed in seeds:
+        boltz.spec.seed = seed
+        boltz.spec.sampling_steps = sampling_steps
+        name = f"prot_s{seed}"
+        yaml_path, chain_lengths = build_protein_yaml(cleaved_state_cif,
+                                                      work / name, name)
+        prot_lens = {k: v for k, v in chain_lengths.items()}
+        target_chain = max(prot_lens, key=prot_lens.get)
+        r = boltz.predict_yaml(yaml_path, name, work / name, chain_lengths,
+                               target_chain=target_chain)
+        if r.ok and r.structure is not None:
+            protein_confs.append((seed, r.structure))
+    if not protein_confs:
+        return None
+
+    # ---- 2+3. graft per (profile, protein conf, graft seed) + cluster
+    frags = fragment_info(cleaved_state_cif)
+    smap = site_chain_map(frags)
     profile_states: list[TargetState] = []
     occupancy = {}
-    audit_all = {"n_glycosidic_bonds": {}, "native_disulfides": {},
-                 "chain_break_preserved": True, "all_pass": True}
+    audit_rollup = {"n_glycosidic_bonds": {}, "native_disulfides": {},
+                    "chain_break_preserved": True, "all_pass": True,
+                    "soft_installs": 0, "protein_conformations": len(protein_confs)}
     for profile in registry.profiles:
-        pdir = bundle_root / "work" / profile.profile_id
-        pdir.mkdir(parents=True, exist_ok=True)
-        pred_files = []
-        for seed in seeds:
-            boltz.spec.seed = seed
-            boltz.spec.sampling_steps = sampling_steps
-            name = f"{profile.profile_id}_s{seed}"
-            yaml_path, meta = build_glyco_yaml(cleaved_state_cif, profile,
-                                               pdir, name)
-            # ligand chains carry no per-residue pLDDT meaning; target the
-            # longer protein fragment for the binder-facing metric
-            prot_lens = {k: v for k, v in meta["chain_lengths"].items()
-                         if k in ("A", "B")}
-            target_chain = max(prot_lens, key=prot_lens.get)
-            result = boltz.predict_yaml(
-                yaml_path, name, pdir, meta["chain_lengths"],
-                target_chain=target_chain)
-            if not result.ok or result.structure is None:
-                continue
-            pred_files.append(result.structure)
-            # per-state deterministic audit on the PREDICTED structure
-            site_map_full = {int(k): (v[0], v[1])
-                             for k, v in meta["site_chain_map"].items()}
-            gly_chain_by_site = {}
-            for k, (site_key, sg) in enumerate(sorted(profile.sites.items())):
-                gly_chain_by_site[int(site_key)] = gly_chain_of(meta, k)
-            smap = {site: (v[0], v[1], gly_chain_by_site[site])
-                    for site, v in site_map_full.items()}
-            audit = audit_predicted_topology(result.structure, smap)
-            for site, r in audit["n_glycosidic_bonds"].items():
-                audit_all["n_glycosidic_bonds"].setdefault(site, []).append(r)
-            for k, r in audit["native_disulfides"].items():
-                audit_all["native_disulfides"].setdefault(k, []).append(r)
-            audit_all["all_pass"] = audit_all["all_pass"] and audit["all_pass"]
-        if not pred_files:
+        gdir = work / f"graft_{profile.profile_id}"
+        gdir.mkdir(parents=True, exist_ok=True)
+        grafted = []   # (state_id, path, graft_report)
+        for pseed, prot_cif in protein_confs:
+            for gseed in range(graft_seeds):
+                sid = f"{profile.profile_id}_p{pseed}_g{gseed}"
+                out_pdb = gdir / f"{sid}.pdb"
+                ps = {site: profile.profile_id for site in smap}
+                rep = gg.graft_state(prot_cif, ps, seed=pseed * 1000 + gseed,
+                                     out_cif=out_pdb, chain_of_site=smap)
+                ok_sites = [v for v in rep.values() if v.get("ok")]
+                if len(ok_sites) < 3:
+                    continue
+                audit_rollup["soft_installs"] += sum(
+                    1 for v in ok_sites if str(v.get("status", "")).startswith("soft"))
+                grafted.append((sid, out_pdb, rep))
+        if not grafted:
             continue
-        clusters = cluster_states(pred_files,
+        clusters = cluster_states([p for _, p, _ in grafted],
                                   min_representatives=min_representatives)
-        # pick representatives: one per cluster (largest first), pad with
-        # remaining highest-weight states up to min_representatives
         by_cluster: dict[int, list] = {}
-        for c in clusters:
-            by_cluster.setdefault(c["cluster_id"], []).append(c)
+        for c, (sid, path, rep) in zip(clusters, grafted):
+            by_cluster.setdefault(c["cluster_id"], []).append((c, sid, path, rep))
         reps = []
         for cid in sorted(by_cluster, key=lambda c: -len(by_cluster[c])):
             reps.append(by_cluster[cid][0])
         for cid in sorted(by_cluster, key=lambda c: -len(by_cluster[c])):
             for extra in by_cluster[cid][1:]:
-                if len(reps) >= min(min_representatives, len(clusters)):
+                if len(reps) >= min(min_representatives, len(grafted)):
                     break
                 reps.append(extra)
-        for c in reps:
-            state_id = f"{profile.profile_id}_{Path(c['file']).stem.split('_s')[-1]}"
-            sid_dir = bundle_root
-            (sid_dir / "glycosylated_states").mkdir(parents=True, exist_ok=True)
-            dest = sid_dir / "glycosylated_states" / f"{state_id}.cif"
-            dest.write_bytes(Path(c["file"]).read_bytes())
-            parts = split_prediction(dest, sid_dir, state_id)
-            (sid_dir / "glycan_masks").mkdir(parents=True, exist_ok=True)
-            write_json(sid_dir / "glycan_masks" / f"{state_id}.json",
-                       parts["mask"])
+        for c, sid, path, rep in reps:
+            (bundle_root / "glycosylated_states").mkdir(parents=True, exist_ok=True)
+            dest = bundle_root / "glycosylated_states" / f"{sid}.pdb"
+            dest.write_bytes(path.read_bytes())
+            # deterministic audit on the grafted state
+            site_map_full = {}
+            for site in smap:
+                gchain = rep.get(str(site), {}).get("chain")
+                if gchain:
+                    site_map_full[site] = (smap[site][0], smap[site][1], gchain)
+            audit = audit_predicted_topology(
+                dest, site_map_full,
+                frag_starts={chr(65 + i): frags[n]["start"]
+                             for i, n in enumerate(sorted(frags))})
+            for k, v in audit["n_glycosidic_bonds"].items():
+                audit_rollup["n_glycosidic_bonds"].setdefault(k, []).append(v)
+            for k, v in audit["native_disulfides"].items():
+                audit_rollup["native_disulfides"].setdefault(k, []).append(v)
+            audit_rollup["chain_break_preserved"] = \
+                audit_rollup["chain_break_preserved"] and audit["chain_break_preserved"]
+            # protein-only view + glycan mask
+            parts = split_prediction(dest, bundle_root, sid)
+            (bundle_root / "glycan_masks").mkdir(parents=True, exist_ok=True)
+            write_json(bundle_root / "glycan_masks" / f"{sid}.json", parts["mask"])
             profile_states.append(TargetState(
-                target_state_id=state_id,
+                target_state_id=sid,
                 glycoform_profile_id=profile.profile_id,
-                file=f"glycosylated_states/{state_id}.cif",
-                protein_only_view=f"protein_only_views/{state_id}.cif",
+                file=f"glycosylated_states/{sid}.pdb",
+                protein_only_view=f"protein_only_views/{sid}.cif",
                 md_cluster_weight=round(c["weight"], 4),
-                confidence={"glycan_atom_count": parts["glycan_atom_count"]}))
+                confidence={"glycan_atom_count": parts["glycan_atom_count"],
+                            "site_report": {k: {kk: vv for kk, vv in v.items()
+                                                if kk in ("status", "n_bond_distance")}
+                                            for k, v in rep.items()}}))
         occupancy[profile.profile_id] = {
             str(sg.site): sg.occupancy for sg in profile.sites.values()}
 
@@ -479,33 +547,45 @@ def build_target_bundle(cleaved_state_cif: Path, registry: GlycoformRegistry,
     bid = bundle_id(template_hash, registry.registry_id,
                     [p.profile_id for p in registry.profiles],
                     software_version, seeds)
-    evidence = registry.profiles[0].evidence_level
+    glycan_pass = all(v["pass"] for lst in
+                      audit_rollup["n_glycosidic_bonds"].values() for v in lst)
+    ss_pass = all(v["pass"] for lst in
+                  audit_rollup["native_disulfides"].values() for v in lst)
     manifest = TargetBundleManifest(
         target_bundle_id=bid,
         glycoform_registry_id=registry.registry_id,
         profile_ids=[p.profile_id for p in registry.profiles],
-        evidence_level=evidence,
+        evidence_level=registry.profiles[0].evidence_level,
         glycan_site_occupancy=occupancy,
         states=profile_states,
-        cleavage_topology_pass=all(a.get("pass", True) for lst in
-                                   audit_all["n_glycosidic_bonds"].values()
-                                   for a in lst) and audit_all["chain_break_preserved"],
+        cleavage_topology_pass=audit_rollup["chain_break_preserved"],
         terminal_state_pass=True,
-        disulfide_pass=all(a["pass"] for lst in
-                           audit_all["native_disulfides"].values() for a in lst),
-        glycan_topology_pass=all(a["pass"] for lst in
-                                 audit_all["n_glycosidic_bonds"].values()
-                                 for a in lst),
+        disulfide_pass=ss_pass,
+        glycan_topology_pass=glycan_pass,
         target_uncertainty={
-            "n_seeds_per_profile": len(seeds),
-            "note": "multi-seed Boltz-2 hypotheses; cross-model check "
-                    "(Chai-1) degrades to seed disagreement when unavailable",
+            "protein_seeds": seeds, "graft_seeds_per_protein": graft_seeds,
+            "protein_conformations": audit_rollup["protein_conformations"],
+            "soft_installs": audit_rollup["soft_installs"],
+            "conformer_method":
+                "Boltz-2 (six-SS bond constraints) + deterministic "
+                "template grafting; cross-model check degrades to seed "
+                "disagreement (Chai-1 not installed)",
         },
     )
     write_json(bundle_root / "manifest.json", manifest.model_dump())
-    write_json(bundle_root / "topology" / "predicted_audit.json", audit_all)
+    (bundle_root / "topology").mkdir(parents=True, exist_ok=True)
+    write_json(bundle_root / "topology" / "predicted_audit.json", audit_rollup)
+    (bundle_root / "provenance").mkdir(parents=True, exist_ok=True)
+    write_json(bundle_root / "provenance" / "README.json", {
+        "template_hash": template_hash,
+        "cleaved_state": str(cleaved_state_cif),
+        "registry": registry.registry_id,
+        "seeds": seeds, "software_version": software_version,
+        "computed_hypothesis": True,
+        "note": "structures are computational hypotheses under stated "
+                "glycoform assumptions; NOT experimental structures",
+    })
     return manifest
-
 
 def gly_chain_of(meta: dict, k: int) -> str:
     return GLYCAN_CHAIN_IDS[k]

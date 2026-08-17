@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "trop2_cis-dimer_inhibitor"
-version = "1.0.1"
+version = "1.1.0"
 description = "TROP2 cleaved-state (R87-T88) specific miniprotein binder design and multi-objective evaluation platform"
 readme = "README.md"
 requires-python = ">=3.11"

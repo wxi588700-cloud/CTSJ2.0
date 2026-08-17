@@ -1,0 +1,89 @@
+# TROP2 cleaved-state binder design - project configuration (PRD 7.2)
+# Medical researchers edit ONLY this file; unknown fields are rejected.
+project:
+  name: trop2_cis_dimer_inhibitor_v1_1
+  species: Homo_sapiens
+
+target:
+  name: TROP2
+  uniprot_id: P09758
+  gene: TACSTD2
+  species: Homo sapiens
+  sequence_fasta: data/raw/fasta/TROP2_human.fasta
+  cis_structure:
+    path: data/raw/pdb/7E5N.cif
+    chain: A
+    role: cis_assembly
+  trans_structure:
+    path: data/raw/pdb/7E5M.cif
+    chain: A
+    role: trans_assembly
+  alternate_structure:
+    path: data/raw/pdb/7PEE.cif
+    chain: A
+    role: ecd_monocistronic
+  cleavage:
+    # 7E5N/7E5M/7PEE author numbering == UniProt numbering (verified:
+    # R87/T88/C73/C108 are direct sequence positions of P09758)
+    left_residue: R87
+    right_residue: T88
+    preserve_disulfides: [[C73, C108]]
+    left_terminal_state: COO-
+    right_terminal_state: NH3+
+    numbering: author
+  # representative N-glycosylation sites (UniProt/author numbering)
+  glycosylation_sites: [33, 120, 168, 184]
+  glycan_exclusion_radius: 12.0
+  membrane_clearance: 8.0
+
+design:
+  binder_length: [60, 120]
+  generator: rfdiffusion        # falls back to deterministic scaffolds without GPU
+  hotspot_mode: t88_neo_n_terminus
+  hotspot_radius: 10.0
+  n_designs_per_scaffold: 3
+  max_candidates: 24
+  import_fasta: null            # point to external candidates to import (M04)
+  import_pdb_dir: null
+  fixed_interface_positions: []
+  forbidden_aa: [C]             # no unpaired cysteines in designed sequences
+  allowed_aa: null
+
+negatives:
+  targets: [intact_trop2_cis, intact_trop2_trans, human_epcam]
+  epcam_structure: data/raw/pdb/4MZV.cif
+  epcam_uniprot: P16422
+  epcam_fasta: data/raw/fasta/EpCAM_human.fasta
+  surfaceome_screen: false      # enable when foldseek/mmseqs2 configured
+
+ranking:
+  hard_filter_profile: v1_strict
+  metrics_profile: metrics_v1
+  method: pareto
+  diversity_cluster_identity: 0.70
+  max_per_family: 3
+  export_top_n: 24
+  uncertainty_lambda: 0.5
+  robust_positive_quantile: 0.10
+
+resources:
+  seed: 20260816
+  max_cpu: 8
+  gpu_required: false
+  max_residues_per_predict: 1200
+  allow_proxy_metrics: true
+
+target_prediction:            # PRD v1.1: 裂解糖基化靶结构 bundle（缺省该段=v1.0 legacy 路径）
+  mode: glyco_ensemble
+  target_bundle_version: "1.1"
+  glycosylation:
+    enabled: true
+    sites: [33, 120, 168, 208]        # 序列 N-X-S/T 实证位点（v1.0 的 184 有误）
+    profile_ids: [high_mannose_man5, complex_biantennary, core_fucosylated_sialylated]
+    registry: configs/glycoforms_v1.yaml
+    source: assumed_sensitivity_panel  # 无位点特异性糖组学数据 -> 敏感性假设面板
+  seeds: [20260817, 20260818, 20260819]   # Boltz 蛋白构象种子（六对SS约束）
+  graft_seeds: 2                       # 每蛋白构象的糖链取向采样数
+  min_representatives: 5               # 每糖型面板发布代表状态数下限
+  sampling_steps: 100
+

@@ -154,21 +154,40 @@ def run(ctx) -> None:
                 if sc > 0.15]
 
     # --- exclusion mask: glycan spheres + membrane half-space
+    # PRD v1.1: when a published target bundle exists, use its REAL grafted
+    # glycan spheres (per-representative masks) instead of the 12 A
+    # heuristic anchors; both stay honest for the legacy path
     glycan_sites = cfg.target.glycosylation_sites
     glycan_spheres = []
+    bundle_masks_dir = out / "target_bundles" / "glycan_masks"
+    if bundle_masks_dir.is_dir():
+        import json as _json
+        n_bundle = 0
+        for mf in sorted(bundle_masks_dir.glob("*.json")):
+            for entry in _json.loads(mf.read_text()):
+                glycan_spheres.append({
+                    "site": f"{entry.get('ccd', 'GLY')}@{entry.get('chain', '?')}",
+                    "center": entry["center"],
+                    "radius": entry["radius"],
+                })
+                n_bundle += 1
+        if n_bundle:
+            exclusion_note = (f"glycans: {n_bundle} spheres from grafted "
+                              "target bundle states (real coordinates)")
     st0 = read_structure(cleaved.iloc[0].file)
     model0 = st0[0]
-    for ch in model0:
-        for res in polymer_residues(ch):
-            if res.seqid.num in glycan_sites:
-                nd2 = res.find_atom("ND2", "*")
-                anchor = (np.array([nd2.pos.x, nd2.pos.y, nd2.pos.z])
-                          if nd2 is not None else residue_centroid(res))
-                glycan_spheres.append({
-                    "site": f"N{res.seqid.num}",
-                    "center": anchor.tolist(),
-                    "radius": cfg.target.glycan_exclusion_radius,
-                })
+    if not glycan_spheres:   # legacy: no bundle masks -> heuristic anchors
+        for ch in model0:
+            for res in polymer_residues(ch):
+                if res.seqid.num in glycan_sites:
+                    nd2 = res.find_atom("ND2", "*")
+                    anchor = (np.array([nd2.pos.x, nd2.pos.y, nd2.pos.z])
+                              if nd2 is not None else residue_centroid(res))
+                    glycan_spheres.append({
+                        "site": f"N{res.seqid.num}",
+                        "center": anchor.tolist(),
+                        "radius": cfg.target.glycan_exclusion_radius,
+                    })
 
     # normal points from the ECD centroid toward the C-terminal stalk /
     # membrane anchor; the bilayer starts BEYOND the last resolved residues
@@ -180,6 +199,9 @@ def run(ctx) -> None:
         "membrane": {"normal": normal.tolist(), "cutoff_offset": round(moffset, 2),
                      "rule": "binder atoms must satisfy dot(normal, x) < cutoff_offset "
                              "(domain side; membrane lies along +normal)"},
+        "glycan_source": locals().get(
+            "exclusion_note", "glycans: heuristic 12 A spheres at sequon anchors "
+            "(no target bundle in this run - legacy v1.0 path)"),
         "glycans": glycan_spheres,
         "cis_interface_residues": [],   # filled by M08 overlay analysis
         "trans_interface_residues": [],

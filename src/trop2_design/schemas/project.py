@@ -168,6 +168,29 @@ class ResourceConfig(StrictModel):
     )
 
 
+class GlycosylationConfig(StrictModel):
+    enabled: bool = True
+    sites: list[int] = Field(default_factory=lambda: [33, 120, 168, 208])
+    profile_ids: list[str] = Field(default_factory=lambda: [
+        "high_mannose_man5", "complex_biantennary",
+        "core_fucosylated_sialylated"])
+    registry: Path = Field(Path("configs/glycoforms_v1.yaml"))
+    source: Literal["assumed_sensitivity_panel", "literature",
+                    "measured_site_specific"] = "assumed_sensitivity_panel"
+
+
+class TargetPredictionConfig(StrictModel):
+    """PRD v1.1 target_prediction block: glyco_ensemble mode switches M02
+    to the hybrid bundle builder; absent block = legacy v1.0 path."""
+    mode: Literal["glyco_ensemble", "legacy_cleaved"] = "glyco_ensemble"
+    target_bundle_version: str = "1.1"
+    glycosylation: GlycosylationConfig = GlycosylationConfig()
+    seeds: list[int] = Field(default_factory=lambda: [20260817, 20260818, 20260819])
+    graft_seeds: int = Field(2, ge=1, le=5)
+    min_representatives: int = Field(5, ge=1, le=20)
+    sampling_steps: int = Field(100, ge=20, le=400)
+
+
 class ProjectConfig(StrictModel):
     project: dict[str, str] = Field(..., description="name/species/seed metadata block")
     target: TargetConfig
@@ -175,6 +198,8 @@ class ProjectConfig(StrictModel):
     negatives: NegativesConfig
     ranking: RankingConfig
     resources: ResourceConfig = ResourceConfig()
+    target_prediction: TargetPredictionConfig | None = Field(
+        None, description="PRD v1.1 glyco_ensemble mode; None = legacy v1.0")
 
     @field_validator("project")
     @classmethod

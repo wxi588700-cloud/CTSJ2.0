@@ -56,6 +56,11 @@ class BoltzSpec:
     device: int | None = None           # CUDA_VISIBLE_DEVICES index
     sampling_steps: int = 200
     recycling_steps: int = 3
+    no_kernels: bool = True   # pure-torch triangular kernels; avoids the
+                              # cuequivariance dependency that breaks the
+                              # env (nccl/torch version conflicts) and is
+                              # REQUIRED for large complexes (>~300 tokens)
+                              # where boltz otherwise takes the cueq path
     seed: int = 20260816
     ssh_host: str | None = None         # e.g. "gn1"; None = local run
     timeout_s: int = 3600
@@ -114,8 +119,13 @@ def write_boltz_yaml(sequences: dict[str, str], out_path: Path,
     return out_path
 
 
-def pick_free_gpu(ssh_host: str | None = None, min_free_mb: int = 12000) -> int | None:
-    """Index of the GPU with the most free memory (via nvidia-smi)."""
+def pick_free_gpu(ssh_host: str | None = None, min_free_mb: int = 12000,
+                  exclude: int | None = None) -> int | None:
+    """Index of the GPU with the most free memory (via nvidia-smi).
+
+    ``exclude`` skips a card (used by the one-shot retry to move off a
+    transiently OOM-ing device on shared clusters).
+    """
     cmd = "nvidia-smi --query-gpu=index,memory.free --format=csv,noheader,nounits"
     try:
         if ssh_host:
@@ -129,9 +139,11 @@ def pick_free_gpu(ssh_host: str | None = None, min_free_mb: int = 12000) -> int 
             parts = [p.strip() for p in line.split(",")]
             if len(parts) != 2:
                 continue
-            free = int(parts[1])
+            idx, free = int(parts[0]), int(parts[1])
+            if exclude is not None and idx == exclude:
+                continue
             if free > best_free:
-                best, best_free = int(parts[0]), free
+                best, best_free = idx, free
         return best
     except Exception:
         return None
@@ -294,27 +306,63 @@ class BoltzPredictor:
             "--recycling_steps", str(self.spec.recycling_steps),
             "--seed", str(self.spec.seed),
         ]
+        if self.spec.no_kernels:
+            cmd.append("--no_kernels")
+        # remote command always re-ensures the workdir: on NFS the directory
+        # created locally can take a moment to become visible remotely, and
+        # a failed `cd` would abort with exit 1 and an EMPTY stdout
+        def _full_cmd(dev):
+            prefix = f"CUDA_VISIBLE_DEVICES={dev} " if dev is not None else ""
+            return f"mkdir -p {workdir} && cd {workdir} && {prefix}" + " ".join(cmd)
+
         if self.spec.ssh_host:
-            prefix = f"CUDA_VISIBLE_DEVICES={device} " if device is not None else ""
-            argv = ["ssh", self.spec.ssh_host,
-                    f"cd {workdir} && {prefix}" + " ".join(cmd)]
+            argv = ["ssh", self.spec.ssh_host, _full_cmd(device)]
         else:
             env_prefix = [f"CUDA_VISIBLE_DEVICES={device}"] if device is not None else []
-            argv = ["env", *env_prefix, "bash", "-c",
-                    f"cd {workdir} && " + " ".join(cmd)]
-        try:
-            proc = subprocess.run(argv, capture_output=True, text=True,
-                                  timeout=self.spec.timeout_s)
-        except FileNotFoundError as exc:
-            return BoltzResult(ok=False, reason=f"launch failed: {exc}")
-        except subprocess.TimeoutExpired:
-            return BoltzResult(ok=False, reason="timeout")
+            argv = ["env", *env_prefix, "bash", "-c", _full_cmd(device)]
+
+        def _run_once(argv):
+            try:
+                return subprocess.run(argv, capture_output=True, text=True,
+                                      timeout=self.spec.timeout_s), None
+            except FileNotFoundError as exc:
+                return None, f"launch failed: {exc}"
+            except subprocess.TimeoutExpired:
+                return None, "timeout"
+
+        def _combined_log(proc):
+            return ((proc.stdout or "")[-1500:] + "\n[stderr]\n"
+                    + (proc.stderr or "")[-1500:])
+
+        proc, err = _run_once(argv)
+        # shared-GPU resilience: a transiently-full card (other users' jobs)
+        # can fail with exit 1 (CUDA OOM); retry ONCE on a different card
+        if proc is not None and proc.returncode != 0 and self.spec.accelerator == "gpu":
+            retry_device = pick_free_gpu(self.spec.ssh_host,
+                                         exclude=(device,))
+            if retry_device is not None and retry_device != device:
+                if self.spec.ssh_host:
+                    argv = ["ssh", self.spec.ssh_host, _full_cmd(retry_device)]
+                else:
+                    argv = ["env", f"CUDA_VISIBLE_DEVICES={retry_device}",
+                            "bash", "-c", _full_cmd(retry_device)]
+                proc, err = _run_once(argv)
+        if proc is None:
+            return BoltzResult(ok=False, reason=err)
 
         pred_dir = _prediction_dir(out_dir, name)
         if proc.returncode != 0 or pred_dir is None:
+            # decisive failure forensics: full argv + outputs to a local file
+            try:
+                dbg = Path(f"/tmp/boltz_fail_{name}.log")
+                dbg.write_text(
+                    f"argv: {argv!r}\nrc: {proc.returncode}\n"
+                    f"stdout: {proc.stdout!r}\nstderr: {proc.stderr!r}\n")
+            except Exception:
+                pass
             return BoltzResult(ok=False, reason=f"exit {proc.returncode}",
-                               log=proc.stdout[-1500:] + proc.stderr[-1500:])
+                               log=_combined_log(proc))
         chain_lengths = {cid: len(seq) for cid, seq in sequences.items()}
         result = parse_boltz_result(pred_dir, chain_lengths, target_chain)
-        result.log = proc.stdout[-1500:]
+        result.log = _combined_log(proc)
         return result

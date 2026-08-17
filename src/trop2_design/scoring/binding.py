@@ -366,7 +366,9 @@ def run(ctx) -> None:
                     out / "boltz_complex" / dn[:64])
                 rec = {"candidate_id": cid, "design_name": dn,
                        "state_id": sid, "ok": result.ok,
-                       "reason": result.reason}
+                       "reason": result.reason,
+                       # PRD: failures must be traceable - keep the log tail
+                       "log_tail": (result.log or "")[-400:]}
                 if result.ok and result.iptm is not None:
                     mask = (df.candidate_id == cid) & (df.design_name == dn) \
                         & (df.state_id != "AGGREGATE")

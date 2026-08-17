@@ -90,10 +90,17 @@ def run(
     """Run the full M00-M10 pipeline (or a subset)."""
     selected = None
     if stages and stages != "all":
-        if stages in STAGE_MAP:
-            selected = STAGE_MAP[stages]
-        else:
-            selected = {s.strip() for s in stages.split(",")}
+        selected = set()
+        for item in stages.split(","):
+            item = item.strip()
+            if not item:
+                continue
+            if item in STAGE_MAP:          # group name -> expand to stage set
+                selected |= STAGE_MAP[item]
+            else:                          # literal stage name (e.g. M06_positive_state)
+                selected.add(item)
+        if not selected:
+            selected = None
 
     project = project.resolve()
     ctx, runner = _prepare_run(project, tools, run_id, selected, resume=True)

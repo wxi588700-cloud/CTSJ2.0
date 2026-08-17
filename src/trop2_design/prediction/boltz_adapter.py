@@ -261,6 +261,77 @@ class BoltzPredictor:
                                               key=lambda k: -len(sequences[k]))
                              if len(sequences) > 1 else list(sequences)[0])
 
+    def predict_yaml(self, yaml_path: Path, name: str, workdir: Path,
+                     chain_lengths: dict[str, int],
+                     target_chain: str | None = None) -> BoltzResult:
+        """Run boltz on a PRE-BUILT input yaml (e.g. glycosylated targets
+        with ligand CCD chains + covalent bond constraints) and parse the
+        result with the same measured-metric extraction as predict_complex."""
+        ok, why = self.spec.available()
+        if not ok:
+            return BoltzResult(ok=False, reason=why)
+        yaml_path = Path(yaml_path).resolve()
+        workdir = Path(workdir).resolve()
+        if self.spec.ssh_host:
+            home = Path.home()
+            if not str(yaml_path).startswith(str(home)):
+                raise ValueError(
+                    "predict_yaml with ssh dispatch requires the yaml on the "
+                    "shared home filesystem")
+        out_dir = workdir / "boltz_out"
+        device = self.spec.device
+        if device is None:
+            env_device = os.environ.get("TROP2_BOLTZ_DEVICE", "").strip()
+            if env_device.isdigit():
+                device = int(env_device)
+        if device is None:
+            device = pick_free_gpu(self.spec.ssh_host)
+
+        cmd = self.spec._boltz_cmd() + [
+            "predict", yaml_path.name,
+            "--out_dir", "boltz_out",
+            "--cache", str(self.spec.cache),
+            "--accelerator", self.spec.accelerator,
+            "--sampling_steps", str(self.spec.sampling_steps),
+            "--recycling_steps", str(self.spec.recycling_steps),
+            "--seed", str(self.spec.seed),
+        ]
+        if self.spec.no_kernels:
+            cmd.append("--no_kernels")
+
+        def _full(dev):
+            prefix = f"CUDA_VISIBLE_DEVICES={dev} " if dev is not None else ""
+            return f"cd {workdir} && {prefix}" + " ".join(cmd)
+
+        if self.spec.ssh_host:
+            argv = ["ssh", self.spec.ssh_host, _full(device)]
+        else:
+            env_prefix = [f"CUDA_VISIBLE_DEVICES={device}"] if device is not None else []
+            argv = ["env", *env_prefix, "bash", "-c", _full(device)]
+        try:
+            proc = subprocess.run(argv, capture_output=True, text=True,
+                                  timeout=self.spec.timeout_s)
+        except FileNotFoundError as exc:
+            return BoltzResult(ok=False, reason=f"launch failed: {exc}")
+        except subprocess.TimeoutExpired:
+            return BoltzResult(ok=False, reason="timeout")
+
+        pred_dir = _prediction_dir(out_dir, name)
+        if proc.returncode != 0 or pred_dir is None:
+            try:
+                Path(f"/tmp/boltz_fail_{name}.log").write_text(
+                    f"argv: {argv!r}\nrc: {proc.returncode}\n"
+                    f"stdout: {proc.stdout!r}\nstderr: {proc.stderr!r}\n")
+            except Exception:
+                pass
+            return BoltzResult(
+                ok=False, reason=f"exit {proc.returncode}",
+                log=(proc.stdout or "")[-1500:] + "\n[stderr]\n"
+                + (proc.stderr or "")[-1500:])
+        result = parse_boltz_result(pred_dir, chain_lengths, target_chain)
+        result.log = (proc.stdout or "")[-1500:]
+        return result
+
     def predict_monomer(self, sequence: str, name: str,
                         workdir: Path) -> BoltzResult:
         return self._predict({"A": sequence}, name, workdir, target_chain="A")

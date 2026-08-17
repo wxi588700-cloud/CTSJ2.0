@@ -181,6 +181,70 @@ def _t88_contact_from_structure(cif_path, right_num: int,
     }
 
 
+def cache_chains_file(cache: dict) -> Path:
+    """File backing a state cache (glyco bundle pov or legacy cif)."""
+    return cache.get("source_file", Path("/tmp/_glyco_state_placeholder.cif"))
+
+
+def _weighted_quantile(values, weights, q: float) -> float:
+    """PRD v1.1 12.2: robust_positive = weighted_quantile across glyco states."""
+    v = np.asarray(values, dtype=float)
+    w = np.asarray(weights, dtype=float)
+    if len(v) == 0:
+        return 0.0
+    if w.sum() <= 0:
+        return float(np.quantile(v, q))
+    order = np.argsort(v)
+    v, w = v[order], w[order]
+    cw = np.cumsum(w) / w.sum()
+    # step convention: first value whose cumulative weight reaches q
+    return float(v[np.searchsorted(cw, q, side="left")].item()
+                 if np.any(cw >= q) else v[-1])
+
+
+def _glycoform_coverage(per_state: list[dict]) -> float:
+    """Mean over profiles of (sum of cluster weights of passing states),
+    capped at 1.0 - PRD 7.4 candidate field."""
+    profiles: dict[str, tuple[float, float]] = {}
+    for r in per_state:
+        p = r.get("glycoform_profile")
+        if not p:
+            continue
+        pass_w, tot = profiles.get(p, (0.0, 0.0))
+        tot += float(r.get("md_cluster_weight", 0.0))
+        if r.get("status") == "pass":
+            pass_w += float(r.get("md_cluster_weight", 0.0))
+        profiles[p] = (pass_w, tot)
+    if not profiles:
+        return 0.0
+    return round(float(np.mean([min(pw / t, 1.0) if t > 0 else 0.0
+                                for pw, t in profiles.values()])), 3)
+
+
+def _load_glyco_states(out: Path):
+    """Bundle states for M06 glyco consumption (PRD v1.1 AC-26): list of
+    dicts {state_id, profile, weight, protein_only_path, mask_spheres}."""
+    mf = out / "target_bundles" / "manifest.json"
+    if not mf.exists():
+        return None
+    import json as _json
+
+    m = _json.loads(mf.read_text())
+    entries = []
+    for s in m.get("states", []):
+        pov = out / "target_bundles" / s["protein_only_view"]
+        mask_p = out / "target_bundles" / "glycan_masks" / \
+            f"{s['target_state_id']}.json"
+        if not pov.exists():
+            continue
+        spheres = _json.loads(mask_p.read_text()) if mask_p.exists() else []
+        entries.append({"state_id": s["target_state_id"],
+                        "profile": s["glycoform_profile_id"],
+                        "weight": float(s["md_cluster_weight"]),
+                        "pov": pov, "spheres": spheres})
+    return entries or None
+
+
 def run(ctx) -> None:
     cfg = ctx.config
     out = ctx.out
@@ -200,20 +264,44 @@ def run(ctx) -> None:
     terminal_records: list[dict] = []
     cand_manifest = pd.read_csv(out / "candidate_manifest.csv").set_index("candidate_id")
 
+    # ---- PRD v1.1: prefer glycosylated bundle states when published
+    glyco_states = _load_glyco_states(out)
+    glyco_mode = glyco_states is not None
+
     # per-state caches (target unbound SASA reused across candidates)
     state_cache: dict[str, dict] = {}
-    for _, srow in cleaved.iterrows():
-        _, chains = load_state(Path(srow.file))
-        target_residues = [r for res in chains.values() for r in res]
-        from .interface_metrics import atoms_of
+    if glyco_mode:
+        for g in glyco_states:
+            st = read_structure(g["pov"])
+            chains = {ch.name: polymer_residues(ch) for ch in st[0]
+                      if polymer_residues(ch)}
+            target_residues = [r for res in chains.values() for r in res]
+            from .interface_metrics import atoms_of
 
-        tc, te, _ = atoms_of(target_residues)
-        state_cache[srow.state_id] = {
-            "chains": chains,
-            "residues": target_residues,
-            "unbound_sasa": sasa(tc, te, 480),
-        }
-    ref_sid = cleaved.iloc[0].state_id
+            tc, te, _ = atoms_of(target_residues)
+            state_cache[g["state_id"]] = {
+                "source_file": g["pov"],
+                "chains": chains, "residues": target_residues,
+                "unbound_sasa": sasa(tc, te, 480),
+                "glycoform_profile": g["profile"],
+                "md_cluster_weight": g["weight"],
+                "spheres": g["spheres"],
+            }
+        ref_sid = glyco_states[0]["state_id"]
+    else:
+        for _, srow in cleaved.iterrows():
+            _, chains = load_state(Path(srow.file))
+            target_residues = [r for res in chains.values() for r in res]
+            from .interface_metrics import atoms_of
+
+            tc, te, _ = atoms_of(target_residues)
+            state_cache[srow.state_id] = {
+                "source_file": Path(srow.file),
+                "chains": chains,
+                "residues": target_residues,
+                "unbound_sasa": sasa(tc, te, 480),
+            }
+        ref_sid = cleaved.iloc[0].state_id
     ref_chains = state_cache[ref_sid]["chains"]
 
     for cid in mono.candidate_id.unique():
@@ -233,8 +321,11 @@ def run(ctx) -> None:
         binder_unbound = sasa(bc, be, 480)
 
         per_state = []
-        for _, srow in cleaved.iterrows():
-            sid = srow.state_id
+        state_iter = ([(g["state_id"], None) for g in glyco_states]
+                      if glyco_mode
+                      else [(srow.state_id, Path(srow.file))
+                            for _, srow in cleaved.iterrows()])
+        for sid, legacy_file in state_iter:
             cache = state_cache[sid]
             state_pose = (pose if sid == ref_sid
                           else map_pose_to_state(pose, cache["chains"], ref_chains))
@@ -263,47 +354,79 @@ def run(ctx) -> None:
                                          summary["n_contact_target_residues"])
             proxies["effective_interface_area_A2"] = round(eff_area, 1)
             term = t88_terminal_evidence(cache["chains"], right_num, state_pose)
+            # bundle glycan spheres: direct binder-vs-glycan clash count
+            glycan_clash = 0
+            if cache.get("spheres"):
+                centres = np.array([s["center"] for s in cache["spheres"]])
+                radii = np.array([s["radius"] for s in cache["spheres"]])
+                d = np.linalg.norm(state_pose[:, None, :] - centres[None, :, :],
+                                   axis=-1)
+                glycan_clash = int((d < 0.6 * radii).any(axis=1).sum())
             passing = (eff_area >= MIN_INTERFACE_AREA and
                        proxies["complex_iptm_proxy"] >= MIN_IPTM and
-                       term["contacted"] and summary["clashes"] <= 25)
+                       term["contacted"] and summary["clashes"] <= 25
+                       and glycan_clash == 0)
             per_state.append({
                 "candidate_id": cid, "design_name": design_names[0], "state_id": sid,
                 **summary, **proxies,
                 **{f"t88_{k}": v for k, v in term.items()},
                 "metric_source": "proxy",
+                "glycoform_profile": cache.get("glycoform_profile", ""),
+                "md_cluster_weight": cache.get("md_cluster_weight", ""),
+                "glycan_clash": glycan_clash,
                 "status": "pass" if passing else "fail_state",
             })
             terminal_records.append({
                 "state_id": sid, "candidate_id": cid,
-                "kind": "cleaved",
+                "kind": "glyco_bundle" if glyco_mode else "cleaved",
                 **term,
                 "t88_residue": cfg.target.cleavage.right_residue,
             })
             if sid == ref_sid:
-                write_complex(Path(srow.file), state_pose, f"{cid}_{sid}",
+                write_complex(legacy_file or cache_chains_file(cache), state_pose,
+                              f"{cid}_{sid}",
                               complexes_dir / f"{cid}_{sid}.cif")
 
-        # cross-state aggregates (PRD 12.2)
-        pass_rate = float(np.mean([r["status"] == "pass" for r in per_state]))
-        iptms = np.array([r["complex_iptm_proxy"] for r in per_state])
-        quant = cfg.ranking.robust_positive_quantile
-        robust_positive = float(np.quantile(iptms, quant))
+        # cross-state aggregates (PRD 12.2; v1.1: WEIGHTED by glyco cluster
+        # weights when consuming a target bundle)
+        if glyco_mode:
+            wts = [r["md_cluster_weight"] for r in per_state]
+            w_arr = np.array([w if isinstance(w, (int, float)) else 1.0
+                              for w in wts], dtype=float)
+            if w_arr.sum() <= 0:
+                w_arr = np.ones(len(per_state))
+            pass_rate = float(np.average(
+                [r["status"] == "pass" for r in per_state], weights=w_arr))
+            iptms = np.array([r["complex_iptm_proxy"] for r in per_state])
+            robust_positive = _weighted_quantile(iptms, w_arr,
+                                                 cfg.ranking.robust_positive_quantile)
+            contact_occ = float(np.average(
+                [bool(r["t88_contacted"]) for r in per_state], weights=w_arr))
+        else:
+            pass_rate = float(np.mean([r["status"] == "pass" for r in per_state]))
+            iptms = np.array([r["complex_iptm_proxy"] for r in per_state])
+            robust_positive = float(np.quantile(
+                iptms, cfg.ranking.robust_positive_quantile))
+            contact_occ = float(np.mean([bool(r["t88_contacted"])
+                                         for r in per_state]))
         uncertainty = float(np.std(iptms))
-        contact_occ = float(np.mean([bool(r["t88_contacted"]) for r in per_state]))
+        glyco_cov = _glycoform_coverage(per_state) if glyco_mode else None
 
         for dn in design_names:
             for r in per_state:
                 r2 = dict(r)
                 r2["design_name"] = dn
                 rows.append(r2)
-            rows.append({
+            agg_row = {
                 "candidate_id": cid, "design_name": dn, "state_id": "AGGREGATE",
                 "positive_state_pass_rate": round(pass_rate, 3),
                 "robust_positive": round(robust_positive, 3),
                 "t88_contact_occupancy": round(contact_occ, 3),
                 "uncertainty_positive": round(uncertainty, 4),
+                "glycoform_coverage": glyco_cov,
                 "status": "aggregate",
-            })
+            }
+            rows.append(agg_row)
 
     df = pd.DataFrame(rows)
 

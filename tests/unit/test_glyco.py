@@ -112,3 +112,45 @@ class TestLegacyCompat:  # AC-27
         assert g.enabled is True and g.profile_ids  # non-empty default panel
         t = TargetPredictionConfig()
         assert t.min_representatives == 5 and t.graft_seeds >= 1
+
+
+class TestWeightedQuantile:
+    def test_matches_unweighted_equal_weights(self):
+        import numpy as np
+        from trop2_design.scoring.binding import _weighted_quantile
+        v = [0.1, 0.5, 0.9]
+        assert _weighted_quantile(v, [1, 1, 1], 0.5) == pytest.approx(
+            float(np.quantile(v, 0.5)), abs=0.06)
+
+    def test_weight_pulls_quantile(self):
+        from trop2_design.scoring.binding import _weighted_quantile
+        # heavy weight on the low value -> q=0.5 collapses onto it
+        assert _weighted_quantile([0.1, 0.9], [100, 1], 0.5) == pytest.approx(0.1, abs=0.02)
+        # heavy weight on the high value -> q=0.5 pulled above midpoint
+        assert _weighted_quantile([0.1, 0.9], [1, 100], 0.5) > 0.4
+
+    def test_empty(self):
+        from trop2_design.scoring.binding import _weighted_quantile
+        assert _weighted_quantile([], [], 0.1) == 0.0
+
+
+class TestGlycoformCoverage:
+    def test_single_profile_pass(self):
+        from trop2_design.scoring.binding import _glycoform_coverage
+        recs = [{"glycoform_profile": "p", "md_cluster_weight": 0.6,
+                 "status": "pass"},
+                {"glycoform_profile": "p", "md_cluster_weight": 0.4,
+                 "status": "fail_state"}]
+        assert _glycoform_coverage(recs) == pytest.approx(0.6, abs=0.01)
+
+    def test_mean_over_profiles(self):
+        from trop2_design.scoring.binding import _glycoform_coverage
+        recs = [
+            {"glycoform_profile": "a", "md_cluster_weight": 1.0, "status": "pass"},
+            {"glycoform_profile": "b", "md_cluster_weight": 1.0, "status": "fail_state"},
+        ]
+        assert _glycoform_coverage(recs) == pytest.approx(0.5, abs=0.01)
+
+    def test_legacy_no_profiles(self):
+        from trop2_design.scoring.binding import _glycoform_coverage
+        assert _glycoform_coverage([{"status": "pass"}]) == 0.0

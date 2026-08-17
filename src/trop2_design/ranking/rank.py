@@ -53,6 +53,7 @@ def _collect(out: Path) -> pd.DataFrame:
             "t88_contact": bool(r.get("t88_contact_occupancy", 0) > 0),
             "t88_contact_occupancy": r.get("t88_contact_occupancy"),
             "complex_iptm": r.get("robust_positive"),
+            "glycoform_coverage": r.get("glycoform_coverage"),
             "uncertainty": r.get("uncertainty_positive"),
         }
         if key in neg_worst.index:
@@ -165,6 +166,24 @@ def run(ctx) -> None:
         reasons_all.append(reasons)
     df["hard_filter_status"] = statuses
     df["rejection_reasons"] = ["; ".join(x) for x in reasons_all]
+
+    # PRD v1.1 12.1 (glyco runs only): binding confined to a single glycoform
+    # / conformation is terminal - cannot be rescued by weighted scores
+    bundle_id_col = str(df["target_bundle_id"].iloc[0]) \
+        if "target_bundle_id" in df.columns and len(df) else ""
+    if bundle_id_col not in ("", "nan", "None"):
+        for idx, r in df.iterrows():
+            cov = r.get("glycoform_coverage")
+            if cov is None or pd.isna(cov):
+                continue
+            if float(cov) < 0.34:   # below one of three panels
+                if df.at[idx, "hard_filter_status"] == "pass":
+                    df.at[idx, "hard_filter_status"] = "reject"
+                base = str(r.rejection_reasons)
+                extra = (f"cross-glycoform robustness insufficient "
+                         f"(glycoform_coverage={cov} < 0.34)")
+                df.at[idx, "rejection_reasons"] = (
+                    base + "; " + extra if base not in ("", "nan") else extra)
 
     # ---- normalised objectives + Pareto among gate survivors
     df["fold_plddt_norm"] = normalise(df["fold_plddt"].to_numpy(), "maximize") * 100.0

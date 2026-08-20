@@ -22,6 +22,9 @@ class ToolSpec(BaseModel):
     command: list[str] = Field(default_factory=list, description="argv prefix, e.g. [python, run_inference.py]")
     python: Path | None = Field(None, description="interpreter of the tool's own conda env")
     weights: Path | None = None
+    ssh_host: str | None = Field(
+        None, description="dispatch execution to this host via SSH (GPU "
+        "node with NFS-shared home), e.g. 'gn1'; None = local run")
     license: str = "unknown"
     version: str | None = None
 

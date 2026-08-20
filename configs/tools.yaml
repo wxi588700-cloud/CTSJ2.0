@@ -14,8 +14,13 @@
 
 rfdiffusion:
   root: external/RFdiffusion
-  # python interpreter of the rfdiffusion conda env (leave null to probe PATH)
-  python: null
+  # RFdiffusion deps installed into the boltz env (dgl==1.1.3, vendored
+  # SE3Transformer --no-deps, e3nn, pyrsistent; rfdiffusion itself -e)
+  python: ~/miniconda3/envs/boltz/bin/python
+  # deps installed into the boltz env: dgl==2.1.0+cu121 (conda dglteam/label/
+  # cu121, numpy<2 pin) + torchdata==0.7.1 + pydantic + vendored
+  # SE3Transformer (--no-deps) + e3nn + pyrsistent + rfdiffusion (-e)
+  ssh_host: gn1   # inference on GPU node via shared home (~3min/design on GPU6)
   weights: external/RFdiffusion/models/Complex_base_ckpt.pt
   license: RFdiffusion (BSD-like, non-commercial weights)
   version: local-checkout

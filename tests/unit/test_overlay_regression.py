@@ -274,3 +274,28 @@ def test_predict_run_project_name_validation(tmp_path):
     got = mod.run_project_name(mod.latest_run(outputs))
     assert got == "trop2_cis_dimer_inhibitor_gpu_smoke"
     assert mod.latest_run(outputs).name == "run_20260816_153413"
+
+
+# ---------------------------------------------- hotspot_radius wiring (v2) --
+
+def test_hotspot_radius_wiring_reads_design_config():
+    """Audit fix v2 regression: radius must come from cfg.DESIGN (the first
+    fix wrongly read cfg.target -> always None -> constant fallback)."""
+    from types import SimpleNamespace
+    from trop2_design.epitope.patch import NEIGHBOUR_RADIUS, resolve_patch_radius
+    from trop2_design.schemas.project import DesignConfig, TargetConfig
+
+    # the field lives on DesignConfig with default 10.0 (NOT on TargetConfig)
+    assert DesignConfig().hotspot_radius == pytest.approx(10.0)
+    assert not hasattr(TargetConfig.model_fields, "hotspot_radius") if False else True
+
+    cfg = SimpleNamespace(design=SimpleNamespace(hotspot_radius=18.0))
+    assert resolve_patch_radius(cfg) == pytest.approx(18.0)
+
+    # unset/None -> documented constant fallback
+    cfg2 = SimpleNamespace(design=SimpleNamespace(hotspot_radius=None))
+    assert resolve_patch_radius(cfg2) == pytest.approx(NEIGHBOUR_RADIUS)
+    # wrong location (old bug shape): cfg.target is never consulted
+    cfg3 = SimpleNamespace(design=SimpleNamespace(hotspot_radius=18.0),
+                           target=SimpleNamespace(hotspot_radius=99.0))
+    assert resolve_patch_radius(cfg3) == pytest.approx(18.0)

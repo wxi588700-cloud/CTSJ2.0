@@ -21,8 +21,10 @@ from ..io import (
 from ..schemas.project import parse_residue_id
 
 NEIGHBOUR_RADIUS = 10.0  # A around T88 defining the patch (DEFAULT; the
-                         # effective radius is cfg.target.hotspot_radius,
-                         # wired in run() - audit fix: was a dead config)
+                         # effective radius is cfg.design.hotspot_radius,
+                         # wired in run() - audit fix v2: the first wiring
+                         # attempt wrongly read cfg.target.hotspot_radius,
+                         # which is always None under StrictModel)
 
 
 def residue_centroid(res) -> np.ndarray:
@@ -49,13 +51,22 @@ def membrane_plane(chain, residues) -> tuple[np.ndarray, float]:
     return normal, offset
 
 
+def resolve_patch_radius(cfg) -> float:
+    """Effective patch radius from config (audit fix v2, testable).
+
+    The field lives on DesignConfig (``cfg.design.hotspot_radius``); the
+    first wiring attempt wrongly read ``cfg.target.hotspot_radius`` which is
+    always None under StrictModel, silently falling back to the constant.
+    """
+    design_cfg = getattr(cfg, "design", None)
+    return float(getattr(design_cfg, "hotspot_radius", None) or NEIGHBOUR_RADIUS)
+
+
 def run(ctx) -> None:
     cfg = ctx.config
     out = ctx.out
     right_aa, right_num = parse_residue_id(cfg.target.cleavage.right_residue)
-    # audit fix: hotspot_radius was a dead config - wire it (fallback to the
-    # module default when unset) so configs actually control the patch size
-    radius = float(getattr(cfg.target, "hotspot_radius", None) or NEIGHBOUR_RADIUS)
+    radius = resolve_patch_radius(cfg)
 
     states = read_json(out / "state_manifest.json") if (out / "state_manifest.json").exists() else None
     import pandas as pd

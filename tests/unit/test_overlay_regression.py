@@ -299,3 +299,84 @@ def test_hotspot_radius_wiring_reads_design_config():
     cfg3 = SimpleNamespace(design=SimpleNamespace(hotspot_radius=18.0),
                            target=SimpleNamespace(hotspot_radius=99.0))
     assert resolve_patch_radius(cfg3) == pytest.approx(18.0)
+
+
+# -------------------------------------------- audit-fix-v2 (P0-P2) guards --
+
+def test_stable_hash_deterministic_and_distinct():
+    from trop2_design.io.common import stable_hash
+    assert stable_hash("CAND-XYZ_h0") == stable_hash("CAND-XYZ_h0")
+    assert stable_hash("a") != stable_hash("b")
+    # bounded seed space (used with % 10**6 etc.)
+    assert 0 <= stable_hash("anything") % 10**6 < 10**6
+
+
+def test_t88_identity_and_motif_context_raise():
+    """Wrong residue at 88 / wrong R87 neighbour must fail fast."""
+    nums = [87, 88, 89]
+    coords = _curve(nums)
+    # residue 88 is ALA (should be THR) -> identity mismatch
+    ch = _chain_of("BODY", nums, coords, res_name="ALA")
+    with pytest.raises(ValueError, match="expected T"):
+        t88_terminal_evidence({"BODY": list(ch)}, 88, np.zeros((1, 3)),
+                              right_aa="T", left_aa="R")
+    # residue 87 is TRP (should be ARG) -> R-T motif context mismatch
+    ch2 = gemmi.Chain("BODY")
+    ch2.add_residue(_residue(87, "TRP", coords[0]))
+    ch2.add_residue(_residue(88, "THR", coords[1]))
+    with pytest.raises(ValueError, match="R87"):
+        t88_terminal_evidence({"BODY": list(ch2)}, 88, np.zeros((1, 3)),
+                              right_aa="T", left_aa="R")
+
+
+def test_monomer_measured_rmsd_is_none_without_structure():
+    """Boltz measured but no structure/scaffold -> rmsd must be None
+    (was a random number shipped under metric_source='measured')."""
+    from types import SimpleNamespace
+    from trop2_design.sequence_design.design import MonomerPredictor
+
+    pred = MonomerPredictor(tools=None, allow_proxy=True,
+                             workdir=Path("/tmp/wd_test_mono"))
+    fake = SimpleNamespace(ok=True, plddt=88.8, structure=None)
+    pred._boltz_predictor = lambda: SimpleNamespace(
+        predict_monomer=lambda *a, **k: fake)
+    out = pred.predict("ACDEFGHIKL", None, None,
+                       np.random.default_rng(0))
+    assert out["metric_source"] == "measured"
+    assert out["rmsd_bound_unbound"] is None  # the actual regression lock
+
+
+def test_hard_filter_profile_has_cis_block_gate():
+    """cis-dimer inhibitor mechanism must be an ADMISSION gate, not only a
+    ranking objective (audit #3/#4)."""
+    import yaml
+    prof = yaml.safe_load(open("models/hard_filter_v1_strict.yaml",
+                               encoding="utf-8"))
+    gates = {g["metric"]: g for g in prof["gates"]}
+    assert "cis_block" in gates
+    assert gates["cis_block"]["op"] == ">="
+    assert gates["cis_block"]["threshold"] == 0.15
+
+
+def test_rfdiffusion_probe_validates_interpreter(tmp_path):
+    """python=null must fall back to the RUNNING interpreter, not bare
+    'python' (which caused available()=True then launch failure)."""
+    from types import SimpleNamespace
+    from trop2_design.generation.adapters import RfdiffusionAdapter
+    root = tmp_path / "RF"
+    (root / "scripts").mkdir(parents=True)
+    (root / "scripts" / "run_inference.py").write_text("# stub\n")
+    spec = SimpleNamespace(root=str(root), python=None, weights=None)
+    ok, why = RfdiffusionAdapter(spec, tmp_path / "wd").available()
+    assert ok, why  # sys.executable exists -> truly available
+
+
+def test_tools_yaml_utf8_chinese_comment(tmp_path):
+    """YAML readers must be encoding-explicit (Windows cp936 crash fix)."""
+    import yaml
+    from trop2_design.schemas.tools import ToolsConfig
+    f = tmp_path / "tools.yaml"
+    f.write_text("# 中文注释：GPU 预测器配置\npredictors: {}\n",
+                 encoding="utf-8")
+    cfg = ToolsConfig.from_yaml(f)
+    assert cfg.predictors == {}

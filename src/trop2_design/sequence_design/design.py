@@ -19,6 +19,7 @@ import gemmi
 import numpy as np
 
 from ..io import (
+    stable_hash,
     first_protein_chain, polymer_residues, read_fasta, read_structure,
     write_cif, write_fasta, write_json,
 )
@@ -181,10 +182,12 @@ class MonomerPredictor:
         boltz = self._boltz_predictor()
         if boltz is not None and self.workdir is not None:
             result = boltz.predict_monomer(
-                seq, f"mono_{abs(hash(design_name)) % 10**8}",
+                seq, f"mono_{stable_hash(design_name) % 10**8}",
                 self.workdir / design_name[:64])
             if result.ok and result.plddt is not None:
-                rmsd = round(float(rng.uniform(0.4, 1.8)), 2)
+                # audit fix: was rng.uniform(0.4, 1.8) - a RANDOM value shipped
+                # under metric_source="measured"; now None unless really computed
+                rmsd = None
                 if result.structure is not None and scaffold_ca is not None:
                     try:
                         from ..io import read_structure, first_protein_chain, polymer_residues
@@ -216,7 +219,7 @@ class MonomerPredictor:
                 "refusing heuristic fold proxy")
         plddt = proxy_fold_plddt(seq, contacts_per_res)
         return {"fold_plddt": plddt,
-                "rmsd_bound_unbound": round(float(rng.uniform(0.4, 1.8)), 2),
+                "rmsd_bound_unbound": None,  # audit fix: no fake rmsd, even seeded
                 "metric_source": "proxy", "predictor": "heuristic-geometry"}
 
 
@@ -278,12 +281,16 @@ def run(ctx) -> None:
             except Exception:
                 ca_pts = None
             for k in range(n_seqs):
-                rng = np.random.default_rng(ctx.seed + hash(cid) % 100000 + k)
+                rng = np.random.default_rng(ctx.seed + stable_hash(cid) % 100000 + k)
                 seqs[f"{cid}_h{k}"] = heuristic_design(
                     n_res, cpr, rng, forbidden, ca_coords=ca_pts)
         else:
             # attempt real ProteinMPNN on the imported/designed backbone
             designed, log = adapter.design(Path(cand["file"]), n_seqs, ctx.seed)
+            if designed and not mpnn_ok:
+                # audit fix: heuristic sequence fallback must fail in strict mode
+                cfg.resources.forbid_proxy_degradation(
+                    "ProteinMPNN sequence design (heuristic fallback)")
             if designed:
                 seqs.update({f"{cid}_mpnn{j}": s for j, s in enumerate(designed.values())})
 
@@ -308,7 +315,7 @@ def run(ctx) -> None:
                                     workdir=out / "boltz_mono",
                                     allow_proxy=cfg.resources.allow_proxy_metrics).predict(
                 seq, scaffold_ca, cpr,
-                np.random.default_rng(abs(hash(name)) % 10**6),
+                np.random.default_rng(stable_hash(name) % 10**6),
                 design_name=name)
             # monomer model: for fallback scaffolds reuse the CA backbone
             model_path = ""

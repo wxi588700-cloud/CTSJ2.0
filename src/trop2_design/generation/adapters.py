@@ -8,6 +8,7 @@ tests on CPU-only machines stay deterministic.
 from __future__ import annotations
 
 import shutil
+import sys
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -40,12 +41,22 @@ class RfdiffusionAdapter:
         weights = self.spec.weights
         if weights is not None and not Path(weights).exists():
             return False, f"weights missing: {weights}"
+        # audit fix: available() never validated the interpreter - with
+        # python=null it probed bare 'python' (absent here) and launched died
+        py = self._interpreter()
+        if shutil.which(py) is None and not Path(py).exists():
+            return False, f"interpreter not found: {py}"
         return True, "ok"
+
+    def _interpreter(self) -> str:
+        """Resolve the interpreter: spec.python, else the RUNNING python
+        (not bare 'python' which need not exist on PATH)."""
+        return str(self.spec.python) if self.spec.python else sys.executable
 
     def _argv(self, target_pdb: Path, hotspots: list[str], n: int, seed: int,
               binder_len: tuple[int, int]) -> list[str]:
         root = Path(self.spec.root)
-        py = str(self.spec.python) if self.spec.python else shutil.which("python") or "python"
+        py = self._interpreter()
         argv = [
             py, str(root / "scripts" / "run_inference.py"),
             f"inference.output_prefix={self.workdir / 'rf'}",

@@ -295,20 +295,25 @@ def run(ctx) -> None:
     # ---- required residues must map (AC-01)
     required = [target.cleavage.left_residue, target.cleavage.right_residue]
     required += [r for pair in target.cleavage.preserve_disulfides for r in pair]
-    mapped_nums = {r["uniprot_num"] for r in mapping_rows if r["role"] == "cis"}
+    roles = sorted({r["role"] for r in mapping_rows})
     for spec in required:
         aa, num = parse_residue_id(spec)
-        rows = [r for r in mapping_rows
-                if r["role"] == "cis" and r["uniprot_num"] == num]
-        if num not in mapped_nums or not rows:
-            raise ValueError(
-                f"required residue {spec} not resolved in cis structure mapping"
-            )
-        if rows[0]["residue"] != aa:
-            raise ValueError(
-                f"required residue {spec} maps to {rows[0]['residue']}{num} "
-                f"in the cis structure - numbering convention mismatch"
-            )
+        # audit fix: validate EVERY ingested structure (cis AND trans AND
+        # alternate) - downstream M07/M08 assume shared numbering on all of
+        # them, so a mismatch anywhere is fatal, not just in the cis reference
+        for role in roles:
+            rows = [r for r in mapping_rows
+                    if r["role"] == role and r["uniprot_num"] == num]
+            if not rows:
+                # residue simply not resolved in this structure is fine;
+                # only a WRONG residue at that number is fatal
+                continue
+            if rows[0]["residue"] != aa:
+                raise ValueError(
+                    f"required residue {spec} maps to "
+                    f"{rows[0]['residue']}{num} in the {role} structure - "
+                    f"numbering convention mismatch"
+                )
 
     # ---- write standard outputs
     write_json(out / "target_registry.json", registry)

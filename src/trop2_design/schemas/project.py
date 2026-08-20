@@ -227,7 +227,7 @@ class ProjectConfig(StrictModel):
     def from_yaml(path: Path) -> "ProjectConfig":
         import yaml
 
-        with open(path) as fh:
+        with open(path, encoding="utf-8") as fh:
             raw = yaml.safe_load(fh)
         return ProjectConfig.model_validate(raw)
 

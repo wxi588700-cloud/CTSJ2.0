@@ -149,12 +149,25 @@ def run(ctx) -> None:
     neg_dir = out / "complexes" / "negative"
     neg_dir.mkdir(parents=True, exist_ok=True)
 
+    # audit fix: negative-state risks are geometric proxies BY DESIGN - strict
+    # mode (allow_proxy_metrics=false) must fail here instead of proceeding
+    ctx.config.resources.forbid_proxy_degradation(
+        "M07 negative-state selectivity (geometric proxy by design)")
+
     screen_tools = {}
     for name in ("foldseek", "mmseqs2"):
         spec = getattr(ctx.tools, name, None) if ctx.tools else None
-        binary = shutil.which(name) if spec is not None else None
+        # audit fix: mmseqs2's actual binary is 'mmseqs' - probe both names
+        binary = (shutil.which(name) or
+                  shutil.which("mmseqs" if name == "mmseqs2" else name)
+                  ) if spec is not None else None
         screen_tools[name] = bool(binary)
     screen_available = any(screen_tools.values())
+    if ctx.config.negatives.surfaceome_screen and not screen_available:
+        # audit fix: surfaceome_screen was a dead switch - never silently no-op
+        raise RuntimeError(
+            "negatives.surfaceome_screen=true but foldseek/mmseqs2 not "
+            "configured - refusing to silently skip off-target screening")
 
     rows: list[dict] = []
     hits: list[dict] = []
@@ -255,8 +268,10 @@ def run(ctx) -> None:
                                  "flagged review per PRD (never silently zero)"})
         else:
             hits.append({"candidate_id": cid, "screen": "foldseek/mmseqs2",
-                         "hit": "not-run-baseline", "risk": None,
-                         "note": "adapter wired; run on host with binaries"})
+                         "hit": "NOT-IMPLEMENTED", "risk": None,
+                         "note": "screening adapter NOT implemented in this "
+                                 "version; run external foldseek/mmseqs2 "
+                                 "before experimental use"})
 
         intact_worst = max(r for r in (cis_risk, trans_risk) if r is not None)
         rows.append({"candidate_id": cid, "design_name": arow.design_name,

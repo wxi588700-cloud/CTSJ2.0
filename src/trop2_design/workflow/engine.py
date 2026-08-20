@@ -133,7 +133,7 @@ class WorkflowRunner:
             if rec.exists() and outputs_exist:
                 import json as _json
                 try:
-                    prior = _json.loads(rec.read_text())
+                    prior = _json.loads(rec.read_text(encoding="utf-8"))
                     if prior.get("cache_key") == key and prior.get("status") == "ok":
                         self._record(StageStatus(stage=stage.name, status="cached",
                                                  cache_key=key,

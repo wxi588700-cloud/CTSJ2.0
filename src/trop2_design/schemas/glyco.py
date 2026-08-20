@@ -109,7 +109,7 @@ class GlycoformRegistry(BaseModel):
     def from_yaml(path: Path) -> "GlycoformRegistry":
         import yaml
 
-        with open(path) as fh:
+        with open(path, encoding="utf-8") as fh:
             raw = yaml.safe_load(fh)
         return GlycoformRegistry.model_validate(raw)
 

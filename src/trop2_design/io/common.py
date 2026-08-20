@@ -40,13 +40,26 @@ def content_hash(payload: str | dict | list) -> str:
 
 def write_json(path: Path, obj) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w") as fh:
+    # encoding fix: never locale-dependent (Windows cp936 would mangle/crash
+    # on non-ASCII paths or payloads written with ensure_ascii=False)
+    with open(path, "w", encoding="utf-8") as fh:
         json.dump(obj, fh, indent=2, ensure_ascii=False, default=str)
 
 
 def read_json(path: Path):
-    with open(path) as fh:
+    with open(path, encoding="utf-8") as fh:
         return json.load(fh)
+
+
+def stable_hash(text: str) -> int:
+    """Process-independent stable hash (SHA-256 derived).
+
+    MUST be used instead of builtin ``hash()`` for anything feeding a random
+    seed or a file name: builtin ``hash()`` on str is salted per process
+    (PYTHONHASHSEED), which silently broke the reproducibility claims.
+    """
+    import hashlib
+    return int(hashlib.sha256(text.encode()).hexdigest()[:8], 16)
 
 
 # ------------------------------------------------------------------- fasta --

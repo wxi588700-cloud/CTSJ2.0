@@ -56,7 +56,7 @@ def run_project_name(run_dir: Path) -> str | None:
         return None
     try:
         import yaml
-        data = yaml.safe_load(rc.read_text()) or {}
+        data = yaml.safe_load(rc.read_text(encoding="utf-8")) or {}
         return (data.get("project") or {}).get("name")
     except Exception:
         return None
@@ -77,7 +77,7 @@ def main() -> int:
         try:
             import yaml
             default_project = ((yaml.safe_load(
-                (ROOT / "configs" / "trop2_v1.yaml").read_text()) or {})
+                (ROOT / "configs" / "trop2_v1.yaml").read_text(encoding="utf-8")) or {})
                 .get("project") or {}).get("name")
         except Exception:
             default_project = None
@@ -107,7 +107,7 @@ def main() -> int:
     manifest = {}
     mf = run_dir / "run_manifest.json"
     if mf.exists():
-        manifest = json.loads(mf.read_text())
+        manifest = json.loads(mf.read_text(encoding="utf-8"))
 
     rows = []
     for _, r in df.iterrows():

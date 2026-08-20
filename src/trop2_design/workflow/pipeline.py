@@ -29,7 +29,7 @@ def build_context(project_root: Path, config, tools, run_id: str | None = None) 
     resolved = out_dir / "resolved_config.yaml"
     import yaml
 
-    with open(resolved, "w") as fh:
+    with open(resolved, "w", encoding="utf-8") as fh:
         yaml.safe_dump(config.resolved_copy(), fh, sort_keys=False, allow_unicode=True)
     return RunContext(project_root=project_root, out_dir=out_dir, config=config,
                       tools=tools, seed=config.resources.seed)

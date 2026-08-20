@@ -60,7 +60,7 @@ class ToolsConfig(BaseModel):
     def from_yaml(path: Path) -> "ToolsConfig":
         import yaml
 
-        with open(path) as fh:
+        with open(path, encoding="utf-8") as fh:
             raw = yaml.safe_load(fh) or {}
         return ToolsConfig.model_validate(raw)
 

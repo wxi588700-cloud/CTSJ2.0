@@ -38,3 +38,9 @@ CPU 确定性模式）产出的标准化候选清单，作为大赛复核示例�
 bash run.sh                 # 全流程（约 6-8 分钟, CPU）
 python predict.py           # 仅重新打包最新 run 为 results.csv
 ```
+
+> **可复现性勘误（2026-08-20，audit-fix-v2）**：v2.0.2 之前的历史 run（含本目录
+> example 文件与 results.csv）由进程随机化的 `hash()` 派生种子生成——**相同种子
+> 重跑不可复现同一清单**。v2.0.2 起随机性全部经 SHA-256 稳定派生（io.stable_hash）
+> 并在 run.sh 固定 PYTHONHASHSEED=0，声明方可成立。引用历史数据时请以
+> run_manifest 的内容哈希为准，勿假设可重生成。

@@ -219,7 +219,7 @@ def render_report(out: Path, df: pd.DataFrame, top: pd.DataFrame,
     if mf.exists():
         import json
 
-        manifest = json.loads(mf.read_text())
+        manifest = json.loads(mf.read_text(encoding="utf-8"))
 
     html = tpl.render(
         run_id=out.name,

@@ -105,21 +105,47 @@ def write_complex(state_file: Path, pose_ca: np.ndarray, name: str,
     return write_cif(st, out_path)
 
 
-def t88_terminal_evidence(state_chains, right_num: int, pose_ca) -> dict:
+
+
+def _aa1(resname: str) -> str:
+    """Three-letter residue name -> one-letter via io.AA3_TO_1 ('X' if unknown)."""
+    from ..io.common import AA3_TO_1
+    return AA3_TO_1.get(resname.strip().upper(), "X")
+
+
+def t88_terminal_evidence(state_chains, right_num: int, pose_ca,
+                          right_aa: str | None = None,
+                          left_aa: str | None = None) -> dict:
     """Direct-contact evidence for the T88 free alpha-amino terminus.
 
     Measured on the true geometry (never a proxy): distance from the T88
     backbone N atom (the free NH3+ group created in M02) to the nearest
     binder heavy atom.  Only meaningful for CLEAVED states (AC-08).
+
+    Audit fix: residue-identity + R-T motif context checks.  A bare number
+    lookup could silently hit a renumbered wrong residue; when the expected
+    identities are supplied (right_aa='T', left_aa='R') mismatches raise.
     """
     t88 = None
+    prev = None
     for res in state_chains.values():
         for r in res:
+            if r.seqid.num == right_num - 1:
+                prev = r
             if r.seqid.num == right_num:
                 t88 = r
                 break
         if t88 is not None:
             break
+    if t88 is not None and right_aa and _aa1(t88.name) != right_aa:
+        raise ValueError(
+            f"residue {right_num} is {t88.name}, expected {right_aa} (T88) - "
+            f"numbering convention mismatch")
+    if (t88 is not None and prev is not None and left_aa
+            and _aa1(prev.name) != left_aa):
+        raise ValueError(
+            f"residue {right_num - 1} is {prev.name}, expected {left_aa} "
+            f"(R87) - cleavage motif R-T context mismatch")
     if t88 is None:
         # audit fix (was silent no-contact): a cleaved state whose chains do
         # not contain the T88 anchor is structural corruption - silently
@@ -237,7 +263,7 @@ def _load_glyco_states(out: Path):
         return None
     import json as _json
 
-    m = _json.loads(mf.read_text())
+    m = _json.loads(mf.read_text(encoding="utf-8"))
     entries = []
     for s in m.get("states", []):
         pov = out / "target_bundles" / s["protein_only_view"]
@@ -245,7 +271,7 @@ def _load_glyco_states(out: Path):
             f"{s['target_state_id']}.json"
         if not pov.exists():
             continue
-        spheres = _json.loads(mask_p.read_text()) if mask_p.exists() else []
+        spheres = _json.loads(mask_p.read_text(encoding="utf-8")) if mask_p.exists() else []
         entries.append({"state_id": s["target_state_id"],
                         "profile": s["glycoform_profile_id"],
                         "weight": float(s["md_cluster_weight"]),
@@ -256,7 +282,8 @@ def _load_glyco_states(out: Path):
 def run(ctx) -> None:
     cfg = ctx.config
     out = ctx.out
-    _, right_num = parse_residue_id(cfg.target.cleavage.right_residue)
+    right_aa, right_num = parse_residue_id(cfg.target.cleavage.right_residue)
+    left_aa, _ = parse_residue_id(cfg.target.cleavage.left_residue)
 
     mono = pd.read_csv(out / "monomer_metrics.csv")
     mono = mono[mono.status == "pass"]
@@ -361,7 +388,8 @@ def run(ctx) -> None:
                                          summary["hbonds"], summary["clashes"],
                                          summary["n_contact_target_residues"])
             proxies["effective_interface_area_A2"] = round(eff_area, 1)
-            term = t88_terminal_evidence(cache["chains"], right_num, state_pose)
+            term = t88_terminal_evidence(cache["chains"], right_num, state_pose,
+                                         right_aa=right_aa, left_aa=left_aa)
             # bundle glycan spheres: direct binder-vs-glycan clash count
             glycan_clash = 0
             if cache.get("spheres"):
@@ -448,6 +476,11 @@ def run(ctx) -> None:
     # ------------------------------------------------------------------
     top_k = getattr(cfg.resources, "boltz_recompute_top_k", 0)
     recompute_log: list[dict] = []
+    if top_k <= 0:
+        # audit fix: strict mode with recompute disabled would finish entirely
+        # on proxy binding metrics without any guard firing
+        cfg.resources.forbid_proxy_degradation(
+            "boltz_recompute_top_k=0 (all binding metrics stay proxy)")
     if top_k > 0:
         # audit fix: the previous ``except Exception: bp = None`` swallowed the
         # failure reason entirely - now the reason is surfaced (warn or hard

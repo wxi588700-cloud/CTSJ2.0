@@ -180,7 +180,7 @@ def run(ctx) -> None:
         import json as _json
         n_bundle = 0
         for mf in sorted(bundle_masks_dir.glob("*.json")):
-            for entry in _json.loads(mf.read_text()):
+            for entry in _json.loads(mf.read_text(encoding="utf-8")):
                 glycan_spheres.append({
                     "site": f"{entry.get('ccd', 'GLY')}@{entry.get('chain', '?')}",
                     "center": entry["center"],

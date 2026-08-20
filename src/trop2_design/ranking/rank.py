@@ -39,7 +39,7 @@ def _collect(out: Path) -> pd.DataFrame:
     if mf.exists():
         import json as _json
         try:
-            bundle_id = _json.loads(mf.read_text()).get("target_bundle_id", "")
+            bundle_id = _json.loads(mf.read_text(encoding="utf-8")).get("target_bundle_id", "")
         except Exception:
             bundle_id = ""
     neg_worst = neg[neg.negative_state == "WORST"].set_index(["candidate_id", "design_name"])
@@ -83,7 +83,14 @@ def _collect(out: Path) -> pd.DataFrame:
         if not mm.empty:
             row["fold_plddt"] = mm.iloc[0].fold_plddt
             row["sequence"] = mm.iloc[0].sequence
-            row["metric_source"] = "proxy"
+        # audit fix: metric_source was HARDCODED "proxy", hiding Boltz-measured
+        # candidates in the final table. A candidate is "measured" when either
+        # its positive-state complex or its monomer was really predicted.
+        pos_src = str(r.get("metric_source", "proxy"))
+        mono_src = (str(mm.iloc[0].metric_source)
+                    if (not mm.empty and "metric_source" in mm.columns) else "proxy")
+        row["metric_source"] = ("measured" if "measured" in (pos_src, mono_src)
+                                else "proxy")
         rows.append(row)
     return pd.DataFrame(rows)
 

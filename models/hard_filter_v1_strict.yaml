@@ -23,6 +23,10 @@ gates:
 - metric: fold_plddt
   op: '>='
   threshold: 70.0
+- metric: cis_block
+  op: '>='
+  threshold: 0.15
+  reject_message: insufficient cis-interface blocking (core cis-dimer inhibitor mechanism)
   reject_message: binder monomer does not fold confidently
 - metric: aggregation_risk
   op: <=

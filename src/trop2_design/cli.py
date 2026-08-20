@@ -23,6 +23,12 @@ def _load_configs(project_yaml: Path, tools_yaml: Path | None):
     from .schemas.tools import ToolsConfig
 
     cfg = ProjectConfig.from_yaml(project_yaml)
+    if tools_yaml and not Path(tools_yaml).exists():
+        # audit fix: silent empty ToolsConfig degraded EVERYTHING to proxy
+        print(f"[trop2][warn] tools config not found: {tools_yaml} "
+              f"- all predictors/probes unavailable")
+        config.resources.forbid_proxy_degradation(
+            f"tools config missing ({tools_yaml})")
     tools = ToolsConfig.from_yaml(tools_yaml) if tools_yaml and Path(tools_yaml).exists() else ToolsConfig()
     return cfg, tools
 
@@ -153,10 +159,10 @@ def report(run_dir: Path = typer.Argument(..., help="outputs/<run_id> directory"
         raise typer.Exit(1)
     import yaml
 
-    cfg = ProjectConfig.model_validate(yaml.safe_load(resolved.read_text()))
+    cfg = ProjectConfig.model_validate(yaml.safe_load(resolved.read_text(encoding="utf-8")))
     tools = ToolsConfig()
     mf = run_dir / "run_manifest.json"
-    seed = json.loads(mf.read_text())["seed"] if mf.exists() else cfg.resources.seed
+    seed = json.loads(mf.read_text(encoding="utf-8"))["seed"] if mf.exists() else cfg.resources.seed
 
     class _Ctx:
         pass
@@ -231,7 +237,7 @@ def prepare_target(
     ref = states[(states.kind == "cleaved") & states.audit_passed].iloc[0]
     import json as _json
 
-    reg = _json.loads((ctx.out / "target_registry.json").read_text())
+    reg = _json.loads((ctx.out / "target_registry.json").read_text(encoding="utf-8"))
     tpl_hash = reg["structures"]["cis"]["sha256"]
     m = build_target_bundle(
         Path(ref.file), registry, ctx.out, boltz,
@@ -260,7 +266,7 @@ def validate_target(
     if not mf.exists():
         typer.echo("[validate-target] manifest.json missing", err=True)
         raise typer.Exit(code=1)
-    m = _json.loads(mf.read_text())
+    m = _json.loads(mf.read_text(encoding="utf-8"))
     errors, warnings = [], []
     for key in ("cleavage_topology_pass", "terminal_state_pass",
                 "disulfide_pass", "glycan_topology_pass"):
@@ -301,7 +307,7 @@ def export_target_bundle(
     import json as _json
     import shutil as _shutil
 
-    m = _json.loads((bundle_dir / "manifest.json").read_text())
+    m = _json.loads((bundle_dir / "manifest.json").read_text(encoding="utf-8"))
     summary = {
         "target_bundle_id": m["target_bundle_id"],
         "target_bundle_version": m["target_bundle_version"],
@@ -333,7 +339,7 @@ def status(run_dir: Path = typer.Argument(..., help="outputs/<run_id>")) -> None
     if not f.exists():
         typer.echo("no task_status.csv", err=True)
         raise typer.Exit(1)
-    typer.echo(f.read_text())
+    typer.echo(f.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

@@ -238,6 +238,10 @@ def run(ctx) -> None:
 
     adapter = NetMHCIIpanAdapter(ctx.tools.netmhc2pan if ctx.tools else None)
     netmhc_available = adapter.available()
+    if not netmhc_available:
+        # audit fix: MHC-II risk silently degrades to a deterministic proxy
+        ctx.config.resources.forbid_proxy_degradation(
+            "NetMHCIIpan immunogenicity screening")
 
     rows: list[dict] = []
     flags_rows: list[dict] = []

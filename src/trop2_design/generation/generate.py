@@ -157,7 +157,7 @@ def run(ctx) -> None:
     # ---- hotspot list
     hotspots = []
     hot_file = out / "hotspots.txt"
-    for line in hot_file.read_text().splitlines():
+    for line in hot_file.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if line and not line.startswith("#"):
             hotspots.append(line.split()[0].lstrip("#"))

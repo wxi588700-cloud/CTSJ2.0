@@ -322,7 +322,10 @@ def run(ctx) -> None:
     pd.DataFrame(mapping_rows).to_csv(out / "residue_mapping.csv", index=False)
 
     qc["ac01_required_residues_mapped"] = {
-        spec: parse_residue_id(spec)[1] in mapped_nums for spec in required
+        spec: any(r["uniprot_num"] == parse_residue_id(spec)[1]
+                  and r["residue"] == parse_residue_id(spec)[0]
+                  for r in mapping_rows)
+        for spec in required
     }
     write_json(out / "input_qc.json", qc)
 

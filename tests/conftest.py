@@ -23,7 +23,7 @@ def mini_target(tmp_path_factory) -> Path:
 @pytest.fixture(scope="session")
 def mini_fasta(tmp_path_factory) -> Path:
     p = tmp_path_factory.mktemp("mini") / "mini.fasta"
-    p.write_text(MINI_FASTA)
+    p.write_text(MINI_FASTA, encoding="utf-8")
     return p
 
 

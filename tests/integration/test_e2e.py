@@ -63,9 +63,9 @@ def test_all_standard_outputs_exist(e2e_run: Path):
 
 @pytest.mark.slow
 def test_ac01_mapping_and_hashes(e2e_run: Path):
-    reg = json.loads((e2e_run / "target_registry.json").read_text())
+    reg = json.loads((e2e_run / "target_registry.json").read_text(encoding="utf-8"))
     assert reg["target"]["uniprot_id"] == "P09758"
-    qc = json.loads((e2e_run / "input_qc.json").read_text())
+    qc = json.loads((e2e_run / "input_qc.json").read_text(encoding="utf-8"))
     assert all(qc["ac01_required_residues_mapped"].values())
     df = pd.read_csv(e2e_run / "residue_mapping.csv")
     for num in (87, 88, 73, 108):
@@ -75,7 +75,7 @@ def test_ac01_mapping_and_hashes(e2e_run: Path):
 
 @pytest.mark.slow
 def test_ac02_ac03_topology_audit(e2e_run: Path):
-    audit = json.loads((e2e_run / "topology_audit.json").read_text())
+    audit = json.loads((e2e_run / "topology_audit.json").read_text(encoding="utf-8"))
     cleaved = [s for s in audit["states"] if s["kind"] == "cleaved"]
     assert len(cleaved) >= 5
     for s in cleaved:
@@ -133,7 +133,7 @@ def test_ac13_pareto_and_diversity(e2e_run: Path):
 
 @pytest.mark.slow
 def test_ac17_html_report_readable(e2e_run: Path):
-    html = (e2e_run / "report.html").read_text()
+    html = (e2e_run / "report.html").read_text(encoding="utf-8")
     assert "TROP2" in html
     assert "R87A/T88A" in html          # experimental controls suggested
     assert "淘汰" in html or "rejection" in html.lower()

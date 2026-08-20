@@ -27,7 +27,7 @@ def _load_configs(project_yaml: Path, tools_yaml: Path | None):
         # audit fix: silent empty ToolsConfig degraded EVERYTHING to proxy
         print(f"[trop2][warn] tools config not found: {tools_yaml} "
               f"- all predictors/probes unavailable")
-        config.resources.forbid_proxy_degradation(
+        cfg.resources.forbid_proxy_degradation(
             f"tools config missing ({tools_yaml})")
     tools = ToolsConfig.from_yaml(tools_yaml) if tools_yaml and Path(tools_yaml).exists() else ToolsConfig()
     return cfg, tools

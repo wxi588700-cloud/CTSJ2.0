@@ -93,7 +93,7 @@ scripts/setup_external_tools.sh <本地已下载目录>   # 复制到 external/�
 | `python design.py` | 仅设计阶段（M01-M09，不含排序/报告） | 同上减 M10 |
 | `trop2 run --stages prepare` | 分阶段运行（prepare/generate/evaluate/rank） | 按阶段 |
 | `trop2 run --run-id <id>` | 断点续跑（已完成阶段命中内容哈希缓存） | 跳过已缓存 |
-| `pytest tests/` | 全部 60 个测试 | 约 6 分钟（含集成） |
+| `pytest tests/` | 全部 110 个测试（101 unit + 9 integration） | 约 6 分钟（含集成） |
 
 **输入**：`configs/trop2_v1.yaml`（靶点/裂解位点/设计参数/硬门槛/种子——医学参数
 只改此文件，未知字段报错）+ `data/raw/` 公开结构与序列（重新获取：

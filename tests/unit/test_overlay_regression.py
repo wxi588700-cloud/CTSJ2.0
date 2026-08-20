@@ -380,3 +380,33 @@ def test_tools_yaml_utf8_chinese_comment(tmp_path):
                  encoding="utf-8")
     cfg = ToolsConfig.from_yaml(f)
     assert cfg.predictors == {}
+
+
+# ------------------------------------------------ audit-fix-v3 (3 claims) --
+
+def test_missing_tools_config_no_name_error(tmp_path, capsys):
+    """Regression for the NameError audit fix: _load_configs referenced an
+    undefined 'config' (actual name: cfg) - a missing tools.yaml crashed with
+    NameError instead of the intended warn/forbid behaviour."""
+    import yaml
+    from trop2_design.cli import _load_configs
+
+    real = Path("configs/trop2_v1.yaml")
+    # default (allow_proxy_metrics=true): warn + empty ToolsConfig, no crash
+    cfg, tools = _load_configs(real, tmp_path / "missing_tools.yaml")
+    assert tools is not None
+    assert "tools config not found" in capsys.readouterr().out
+    # strict mode -> intended RuntimeError (NOT NameError)
+    body = yaml.safe_load(real.read_text(encoding="utf-8"))
+    body["resources"] = {**(body.get("resources") or {}),
+                         "allow_proxy_metrics": False}
+    strict = tmp_path / "strict.yaml"
+    strict.write_text(yaml.safe_dump(body), encoding="utf-8")
+    try:
+        _load_configs(strict, tmp_path / "missing_tools.yaml")
+        raised = None
+    except NameError:
+        raised = "NameError"
+    except RuntimeError:
+        raised = "RuntimeError"
+    assert raised == "RuntimeError", f"expected RuntimeError, got {raised}"

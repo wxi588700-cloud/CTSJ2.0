@@ -38,11 +38,20 @@ class TestT88TerminalContact:
         assert ev["contacted"] is False
         assert ev["min_distance"] > 4.5
 
-    def test_missing_t88_returns_no_contact(self, mini_target):
+    def test_missing_t88_raises(self, mini_target):
+        # audit fix: a cleaved state without its T88 anchor is corrupt and
+        # must fail fast (was: silent no-contact masking the corruption)
         st = read_structure(mini_target)
         chains = {"A": [r for r in first_protein_chain(st)]}
-        ev = t88_terminal_evidence(chains, 99999, np.zeros((5, 3)))
+        with pytest.raises(ValueError, match="not found in cleaved-state chains"):
+            t88_terminal_evidence(chains, 99999, np.zeros((5, 3)))
+
+    def test_empty_pose_still_benign_no_contact(self, mini_target):
+        st = read_structure(mini_target)
+        chains = {"A": [r for r in first_protein_chain(st)]}
+        ev = t88_terminal_evidence(chains, 61, np.zeros((0, 3)))
         assert ev["contacted"] is False
+        assert ev["min_distance"] == 99.0
 
 
 class TestDevelopability:

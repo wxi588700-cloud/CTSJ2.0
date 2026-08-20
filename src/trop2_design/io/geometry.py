@@ -166,6 +166,44 @@ def rmsd(a: np.ndarray, b: np.ndarray) -> float:
     return float(np.sqrt(((a - b) ** 2).sum(axis=1).mean()))
 
 
+def superpose_by_number(mobile_res, target_res, max_pairs: int = 60,
+                        min_pairs: int = 10):
+    """Kabsch-superpose two residue lists paired by residue ``seqid.num``.
+
+    Returns ``(R, t, fit_rmsd, n_pairs)`` so that ``ca(mobile) @ R + t``
+    aligns onto the matched target CAs.
+
+    Pairing by residue NUMBER (never by list order) is mandatory here: the
+    cleaved BODY chain starts at T88 while assembly/intact chains start at
+    residue 32 - sequential pairing silently mis-registers the two traces by
+    56 residues and superposes the wrong residues onto each other (this is
+    exactly the M08 bug that produced all-zero cis_block/trans_occlusion in
+    every run before the fix).
+    """
+    def ca_by_num(res_list):
+        out = {}
+        for r in res_list:
+            at = r.find_atom("CA", "*")
+            if at is not None and r.seqid.num not in out:
+                out[r.seqid.num] = (at.pos.x, at.pos.y, at.pos.z)
+        return out
+
+    m = ca_by_num(mobile_res)
+    t = ca_by_num(target_res)
+    common = sorted(set(m) & set(t))
+    if len(common) < min_pairs:
+        raise ValueError(
+            f"superpose_by_number: only {len(common)} residues matched by "
+            f"number (need >= {min_pairs}); the two traces do not share a "
+            f"numbering convention - refusing to guess an alignment")
+    sel = common[:max_pairs]
+    A = np.array([m[k] for k in sel])
+    B = np.array([t[k] for k in sel])
+    R, tvec = kabsch(A, B)
+    fit = A @ R + tvec
+    return R, tvec, rmsd(fit, B), len(sel)
+
+
 # ---------------------------------------------------------------- contacts --
 
 def contacts_within(a: np.ndarray, b: np.ndarray, cutoff: float = 4.5):

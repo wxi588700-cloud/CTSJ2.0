@@ -167,6 +167,21 @@ class ResourceConfig(StrictModel):
                     "ipTM/pLDDT/PAE with measured values; 0 disables GPU recomputation",
     )
 
+    def forbid_proxy_degradation(self, what: str) -> None:
+        """Fail-fast guard for degraded/proxy paths (audit fix).
+
+        ``allow_proxy_metrics=false`` converts the historical *silent*
+        degradations (deterministic scaffold fallback, heuristic fold scores,
+        proxy binding metrics when Boltz is unavailable) into explicit
+        RuntimeErrorS, so a production run can never finish on proxy data
+        without the operator knowing.
+        """
+        if not self.allow_proxy_metrics:
+            raise RuntimeError(
+                f"{what} - unavailable and allow_proxy_metrics=false; refusing "
+                f"to silently degrade to proxy. Configure the real tool in "
+                f"tools.yaml or set allow_proxy_metrics: true")
+
 
 class GlycosylationConfig(StrictModel):
     enabled: bool = True

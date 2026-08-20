@@ -20,7 +20,9 @@ from ..io import (
 )
 from ..schemas.project import parse_residue_id
 
-NEIGHBOUR_RADIUS = 10.0  # A around T88 defining the patch
+NEIGHBOUR_RADIUS = 10.0  # A around T88 defining the patch (DEFAULT; the
+                         # effective radius is cfg.target.hotspot_radius,
+                         # wired in run() - audit fix: was a dead config)
 
 
 def residue_centroid(res) -> np.ndarray:
@@ -51,6 +53,9 @@ def run(ctx) -> None:
     cfg = ctx.config
     out = ctx.out
     right_aa, right_num = parse_residue_id(cfg.target.cleavage.right_residue)
+    # audit fix: hotspot_radius was a dead config - wire it (fallback to the
+    # module default when unset) so configs actually control the patch size
+    radius = float(getattr(cfg.target, "hotspot_radius", None) or NEIGHBOUR_RADIUS)
 
     states = read_json(out / "state_manifest.json") if (out / "state_manifest.json").exists() else None
     import pandas as pd
@@ -84,7 +89,7 @@ def run(ctx) -> None:
         # the disulfide-tethered fragment)
         all_res = polymer_residues(body) + (polymer_residues(frag) if frag else [])
         neigh = [r for r in all_res
-                 if np.linalg.norm(residue_centroid(r) - t88_c) <= NEIGHBOUR_RADIUS]
+                 if np.linalg.norm(residue_centroid(r) - t88_c) <= radius]
 
         # SASA for the full state
         sasa_map = residue_sasa(all_res)
@@ -143,7 +148,7 @@ def run(ctx) -> None:
     for num, rec in patch_residues.items():
         d_t88 = float(np.linalg.norm(np.array(rec["centroid"]) -
                                      np.array(per_state_patches[0]["t88_centroid"])))
-        score = (1.0 - min(d_t88 / NEIGHBOUR_RADIUS, 1.0))
+        score = (1.0 - min(d_t88 / radius, 1.0))
         score *= (0.4 + 0.6 * min(rec["mean_sasa"] / 120.0, 1.0))
         score *= (1.0 - min(rec["sasa_std"] / 60.0, 0.8))
         if rec["membrane_dist"] < 4.0:

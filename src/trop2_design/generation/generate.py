@@ -190,6 +190,10 @@ def run(ctx) -> None:
                              "length": len(seq), "backbone_family": "rfdiffusion"})
             fasta_records.append((f"{cid}|rfdiffusion", seq))
     else:
+        # audit fix: never fall back to deterministic scaffolds silently when
+        # proxy/degraded generation is forbidden (allow_proxy_metrics=false)
+        cfg.resources.forbid_proxy_degradation(
+            f"RFdiffusion generation ({result.reason})")
         log["rfdiffusion"] = {"status": "unavailable", "reason": result.reason}
 
     # ---- 2) deterministic scaffold fallback (keeps pipeline runnable)

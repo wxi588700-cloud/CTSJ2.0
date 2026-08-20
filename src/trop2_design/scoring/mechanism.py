@@ -20,7 +20,7 @@ from ..io import (
     first_protein_chain, iter_protein_chains, polymer_residues, read_json,
     read_structure, write_cif, write_json,
 )
-from ..io.geometry import clash_count, kabsch
+from ..io.geometry import clash_count, kabsch, superpose_by_number
 
 
 def assembly_interface_residues(assembly_st, chain_a: str, chain_b: str,
@@ -48,18 +48,76 @@ def assembly_interface_residues(assembly_st, chain_a: str, chain_b: str,
 
 
 def overlay_pose(pose_ca, cleaved_body_res, assembly_chain_res):
-    """Superpose cleaved body CA trace onto an assembly chain, move pose."""
-    def cas(res_list):
-        return np.array([[r.find_atom("CA", "*").pos.x,
-                          r.find_atom("CA", "*").pos.y,
-                          r.find_atom("CA", "*").pos.z] for r in res_list
-                         if r.find_atom("CA", "*") is not None])
+    """Superpose cleaved body CA trace onto an assembly chain, move pose.
 
-    a = cas(cleaved_body_res)
-    b = cas(assembly_chain_res)
-    n = min(len(a), len(b), 60)
-    R, t = kabsch(a[:n], b[:n])
-    return pose_ca @ R + t
+    FIX (was: sequential ``a[:n]/b[:n]`` pairing): residues are paired by
+    author residue NUMBER.  The cleaved BODY starts at T88 while assembly
+    chains start at residue 32, so sequential pairing mis-registered the
+    traces by 56 residues and every prior run reported cis_block = 0.0.
+
+    Returns ``(pose_asm, fit_rmsd, n_pairs)`` for diagnostics/regression.
+    """
+    R, t, fit_rmsd, n_pairs = superpose_by_number(
+        cleaved_body_res, assembly_chain_res)
+    return pose_ca @ R + t, fit_rmsd, n_pairs
+
+
+def overlay_assembly(pose, body_chain, asm_st, a_res, b_res, a_name, b_name,
+                     iface, kind, cid, overlay_dir, coverage_cutoff: float = 8.0):
+    """Transfer a binder pose onto an assembly, quantify interface coverage.
+
+    Returns ``(coverage, n_contacts_b, clashes_b, fit_rmsd, n_pairs)``.
+    Module-level (previously nested in :func:`run`) so regression tests can
+    exercise the numeric path directly with synthetic structures.
+    """
+    pose_asm, fit_rmsd, n_pairs = overlay_pose(pose, body_chain, a_res)
+    b_ca = np.array([[a.pos.x, a.pos.y, a.pos.z] for r in b_res
+                     if (a := r.find_atom("CA", "*")) is not None]) if b_res else np.zeros((0, 3))
+    # interface coverage: iface residues within 8 A of binder
+    iface_ca = {r.seqid.num: np.array([r.find_atom("CA", "*").pos.x,
+                                       r.find_atom("CA", "*").pos.y,
+                                       r.find_atom("CA", "*").pos.z])
+                for r in a_res if r.seqid.num in iface and r.find_atom("CA", "*")}
+    covered = 0
+    for num, p in iface_ca.items():
+        if np.linalg.norm(pose_asm - p, axis=1).min() <= coverage_cutoff:
+            covered += 1
+    coverage = covered / max(len(iface), 1)
+    # occlusion of partner chain: contacts + clashes
+    n_contacts_b = 0
+    clashes_b = 0
+    if len(b_ca):
+        from scipy.spatial import cKDTree
+
+        tree = cKDTree(b_ca)
+        near = tree.query_ball_point(pose_asm, r=8.0)
+        n_contacts_b = sum(len(x) for x in near)
+        cl = tree.query_ball_point(pose_asm, r=3.2)
+        clashes_b = sum(len(x) for x in cl)
+    # persist overlay structure
+    st = gemmi.Structure()
+    st.name = f"{cid}_{kind}"
+    st.spacegroup_hm = "P 1"
+    model = gemmi.Model("1")
+    for chn in asm_st[0]:
+        if chn.name in (a_name, b_name):
+            model.add_chain(chn.clone())
+    bch = gemmi.Chain("BND")
+    res = gemmi.Residue()
+    res.name = "GLY"
+    res.seqid = gemmi.SeqId(1, " ")
+    for p in pose_asm:
+        at = gemmi.Atom()
+        at.name = "CA"
+        at.element = gemmi.Element("C")
+        at.pos = gemmi.Position(*p)
+        res.add_atom(at)
+    bch.add_residue(res)
+    model.add_chain(bch)
+    st.add_model(model)
+    st.setup_entities()
+    write_cif(st, Path(overlay_dir) / f"{cid}_{kind}.cif")
+    return coverage, n_contacts_b, clashes_b, fit_rmsd, n_pairs
 
 
 def run(ctx) -> None:
@@ -70,7 +128,9 @@ def run(ctx) -> None:
     shortlist = agg[agg.positive_state_pass_rate > 0]
     if shortlist.empty:
         pd.DataFrame(columns=["candidate_id", "design_name", "cis_block",
-                              "trans_occlusion", "glycan_membrane_clash"]).to_csv(
+                              "trans_occlusion", "glycan_membrane_clash",
+                              "cis_overlay_rmsd", "cis_overlay_pairs",
+                              "trans_overlay_rmsd", "trans_overlay_pairs"]).to_csv(
             out / "mechanism_metrics.csv", index=False)
         write_json(out / "clash_report.json", [])
         ctx.state["mechanism"] = []
@@ -134,60 +194,12 @@ def run(ctx) -> None:
         pose = np.array([[a.pos.x, a.pos.y, a.pos.z] for r in polymer_residues(ch)
                          if (a := r.find_atom("CA", "*")) is not None])
 
-        def overlay_assembly(asm_st, a_res, b_res, a_name, b_name, iface, kind):
-            pose_asm = overlay_pose(pose, body_chain, a_res)
-            b_ca = np.array([[a.pos.x, a.pos.y, a.pos.z] for r in b_res
-                             if (a := r.find_atom("CA", "*")) is not None]) if b_res else np.zeros((0, 3))
-            # interface coverage: iface residues within 8 A of binder
-            iface_ca = {r.seqid.num: np.array([r.find_atom("CA", "*").pos.x,
-                                               r.find_atom("CA", "*").pos.y,
-                                               r.find_atom("CA", "*").pos.z])
-                        for r in a_res if r.seqid.num in iface and r.find_atom("CA", "*")}
-            covered = 0
-            for num, p in iface_ca.items():
-                if np.linalg.norm(pose_asm - p, axis=1).min() <= 8.0:
-                    covered += 1
-            coverage = covered / max(len(iface), 1)
-            # occlusion of partner chain: contacts + clashes
-            n_contacts_b = 0
-            clashes_b = 0
-            if len(b_ca):
-                from scipy.spatial import cKDTree
-
-                tree = cKDTree(b_ca)
-                near = tree.query_ball_point(pose_asm, r=8.0)
-                n_contacts_b = sum(len(x) for x in near)
-                cl = tree.query_ball_point(pose_asm, r=3.2)
-                clashes_b = sum(len(x) for x in cl)
-            # persist overlay structure
-            st = gemmi.Structure()
-            st.name = f"{cid}_{kind}"
-            st.spacegroup_hm = "P 1"
-            model = gemmi.Model("1")
-            for chn in asm_st[0]:
-                if chn.name in (a_name, b_name):
-                    model.add_chain(chn.clone())
-            bch = gemmi.Chain("BND")
-            res = gemmi.Residue()
-            res.name = "GLY"
-            res.seqid = gemmi.SeqId(1, " ")
-            for p in pose_asm:
-                at = gemmi.Atom()
-                at.name = "CA"
-                at.element = gemmi.Element("C")
-                at.pos = gemmi.Position(*p)
-                res.add_atom(at)
-            bch.add_residue(res)
-            model.add_chain(bch)
-            st.add_model(model)
-            st.setup_entities()
-            write_cif(st, overlay_dir / f"{cid}_{kind}.cif")
-            return coverage, n_contacts_b, clashes_b
-
-        cis_cov, cis_contacts_b, cis_clashes_b = overlay_assembly(
-            cis_asm, cis_a_res, cis_b_res, cis_a_name, cis_b_name, cis_iface, "cis")
-        trans_cov, trans_contacts_b, trans_clashes_b = overlay_assembly(
-            trans_asm, trans_a_res, trans_b_res, trans_a_name, trans_b_name, trans_iface, "trans")
+        cis_cov, cis_contacts_b, cis_clashes_b, cis_rmsd, cis_pairs = overlay_assembly(
+            pose, body_chain, cis_asm, cis_a_res, cis_b_res,
+            cis_a_name, cis_b_name, cis_iface, "cis", cid, overlay_dir)
+        trans_cov, trans_contacts_b, trans_clashes_b, trans_rmsd, trans_pairs = overlay_assembly(
+            pose, body_chain, trans_asm, trans_a_res, trans_b_res,
+            trans_a_name, trans_b_name, trans_iface, "trans", cid, overlay_dir)
 
         # membrane + glycan collisions on the cleaved-state pose
         pose_state = pose  # already in cleaved-state frame (design pose)
@@ -210,6 +222,10 @@ def run(ctx) -> None:
             "trans_interface_size": len(trans_iface),
             "trans_partner_contacts": trans_contacts_b,
             "trans_partner_clashes": trans_clashes_b,
+            "cis_overlay_rmsd": round(cis_rmsd, 3),
+            "cis_overlay_pairs": cis_pairs,
+            "trans_overlay_rmsd": round(trans_rmsd, 3),
+            "trans_overlay_pairs": trans_pairs,
             "glycan_membrane_clash": glycan_membrane_clash,
             "membrane_violations": membrane_violations,
             "glycan_violations": glycan_violations,
@@ -220,6 +236,8 @@ def run(ctx) -> None:
             "glycan_violations": glycan_violations,
             "trans_partner_clashes": trans_clashes_b,
             "cis_partner_clashes": cis_clashes_b,
+            "cis_overlay_rmsd": round(cis_rmsd, 3),
+            "trans_overlay_rmsd": round(trans_rmsd, 3),
             "verdict": "clash" if glycan_membrane_clash > 0 or trans_clashes_b > 12 else "ok",
         })
 

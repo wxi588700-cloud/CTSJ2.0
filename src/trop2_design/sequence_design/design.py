@@ -157,10 +157,12 @@ class MonomerPredictor:
     MEASURED values (metric_source='measured').  Otherwise the deterministic
     proxy keeps the pipeline runnable on CPU with explicit proxy flags."""
 
-    def __init__(self, tools, seed: int = 20260816, workdir: Path | None = None):
+    def __init__(self, tools, seed: int = 20260816, workdir: Path | None = None,
+                 allow_proxy: bool = True):
         self.tools = tools
         self.seed = seed
         self.workdir = workdir
+        self.allow_proxy = allow_proxy
 
     def _boltz_predictor(self):
         try:
@@ -205,6 +207,13 @@ class MonomerPredictor:
                         "rmsd_bound_unbound": rmsd,
                         "metric_source": "measured",
                         "predictor": "boltz-2"}
+        # audit fix: heuristic fold proxy is forbidden in production-strict
+        # mode (allow_proxy_metrics=false) - raise instead of degrading
+        if not self.allow_proxy:
+            raise RuntimeError(
+                "Boltz monomer predictor unavailable (check tools.yaml "
+                "predictors.boltz.python) and allow_proxy_metrics=false - "
+                "refusing heuristic fold proxy")
         plddt = proxy_fold_plddt(seq, contacts_per_res)
         return {"fold_plddt": plddt,
                 "rmsd_bound_unbound": round(float(rng.uniform(0.4, 1.8)), 2),
@@ -296,7 +305,8 @@ def run(ctx) -> None:
             # scaffold CA trace for bound/unbound RMSD when Boltz measures it
             scaffold_ca = ca_pts  # radial-layering CA trace (same backbone)
             pred = MonomerPredictor(ctx.tools, seed=ctx.seed,
-                                    workdir=out / "boltz_mono").predict(
+                                    workdir=out / "boltz_mono",
+                                    allow_proxy=cfg.resources.allow_proxy_metrics).predict(
                 seq, scaffold_ca, cpr,
                 np.random.default_rng(abs(hash(name)) % 10**6),
                 design_name=name)

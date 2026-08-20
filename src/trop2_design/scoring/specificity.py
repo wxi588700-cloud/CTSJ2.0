@@ -31,24 +31,20 @@ from ..io import (
     first_protein_chain, polymer_residues, read_json, read_structure,
     write_cif, write_json,
 )
-from ..io.geometry import clash_count, kabsch
+from ..io.geometry import clash_count, kabsch, superpose_by_number
 from .interface_metrics import InterfaceAnalysis, binder_trace_residues, atoms_of
 
 
 def pose_on_intact(pose_ca, cleaved_chains, intact_chain_res):
-    """Superpose cleaved-state body onto the intact chain, move the pose."""
-    def cas(res_list):
-        return np.array([[r.find_atom("CA", "*").pos.x,
-                          r.find_atom("CA", "*").pos.y,
-                          r.find_atom("CA", "*").pos.z] for r in res_list
-                         if r.find_atom("CA", "*") is not None])
+    """Superpose cleaved-state body onto the intact chain, move the pose.
 
-    a = cas([r for res in cleaved_chains.values() for r in res])
-    b = cas(intact_chain_res)
-    n = min(len(a), len(b), 60)
-    if n < 3:
-        return pose_ca
-    R, t = kabsch(a[:n], b[:n])
+    FIX (was: sequential ``a[:n]/b[:n]`` pairing): residues are paired by
+    author residue NUMBER.  Cleaved chains start at T88 (BODY) / D32 (NFR)
+    while the intact chain starts at D32 - sequential pairing mis-registered
+    the traces (same bug family as mechanism.overlay_pose).
+    """
+    mobile = [r for res in cleaved_chains.values() for r in res]
+    R, t, _fit_rmsd, _n = superpose_by_number(mobile, intact_chain_res)
     return pose_ca @ R + t
 
 

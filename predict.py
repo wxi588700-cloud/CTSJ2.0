@@ -49,6 +49,19 @@ def latest_run(outputs: Path) -> Path | None:
     return runs[-1] if runs else None
 
 
+def run_project_name(run_dir: Path) -> str | None:
+    """Project name recorded in a run's resolved_config.yaml (None if absent)."""
+    rc = run_dir / "resolved_config.yaml"
+    if not rc.exists():
+        return None
+    try:
+        import yaml
+        data = yaml.safe_load(rc.read_text()) or {}
+        return (data.get("project") or {}).get("name")
+    except Exception:
+        return None
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="generate standardised results.csv")
     parser.add_argument("--run-id", default=None, help="outputs/<run_id> to package")
@@ -56,6 +69,25 @@ def main() -> int:
 
     outputs = ROOT / "outputs"
     run_dir = outputs / args.run_id if args.run_id else latest_run(outputs)
+
+    # audit fix: auto-picking "latest run" previously packaged SMOKE runs into
+    # results.csv without any warning - now the run's project name must match
+    # the production config (explicit --run-id bypasses the check on purpose)
+    if not args.run_id and run_dir is not None:
+        try:
+            import yaml
+            default_project = ((yaml.safe_load(
+                (ROOT / "configs" / "trop2_v1.yaml").read_text()) or {})
+                .get("project") or {}).get("name")
+        except Exception:
+            default_project = None
+        got = run_project_name(run_dir)
+        if default_project and got and got != default_project:
+            print(f"[predict.py] ERROR: latest run '{run_dir.name}' belongs to "
+                  f"project '{got}' (expected '{default_project}' - e.g. a gpu "
+                  f"smoke run would leak into results.csv). Re-run production or "
+                  f"pass --run-id <id> to package a specific run.", file=sys.stderr)
+            return 1
 
     if run_dir is None or not (run_dir / "candidate_metrics.csv").exists():
         print("[predict.py] no completed run found - executing full pipeline first")

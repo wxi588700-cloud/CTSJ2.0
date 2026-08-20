@@ -120,7 +120,15 @@ def t88_terminal_evidence(state_chains, right_num: int, pose_ca) -> dict:
                 break
         if t88 is not None:
             break
-    if t88 is None or len(pose_ca) == 0:
+    if t88 is None:
+        # audit fix (was silent no-contact): a cleaved state whose chains do
+        # not contain the T88 anchor is structural corruption - silently
+        # failing the contact gate masked it.  An empty binder pose remains a
+        # benign no-contact.
+        raise ValueError(
+            f"T88 (residue {right_num}) not found in cleaved-state chains - "
+            f"state is corrupt; refusing to score it as a silent no-contact")
+    if len(pose_ca) == 0:
         return {"contacted": False, "min_distance": 99.0, "n_contacts": 0,
                 "contact_atoms": [], "orientation_score": 0.0}
     n_atom = t88.find_atom("N", "*")
@@ -441,14 +449,26 @@ def run(ctx) -> None:
     top_k = getattr(cfg.resources, "boltz_recompute_top_k", 0)
     recompute_log: list[dict] = []
     if top_k > 0:
+        # audit fix: the previous ``except Exception: bp = None`` swallowed the
+        # failure reason entirely - now the reason is surfaced (warn or hard
+        # error when allow_proxy_metrics=false), never silent
         bp = None
-        try:
-            from ..prediction import build_boltz
-            bspec = ctx.tools.predictors.get("boltz") if ctx.tools else None
-            if bspec is not None and bspec.python:
+        boltz_error = None
+        bspec = ctx.tools.predictors.get("boltz") if ctx.tools else None
+        if bspec is None or not bspec.python:
+            boltz_error = "predictors.boltz.python not configured in tools.yaml"
+        else:
+            try:
+                from ..prediction import build_boltz
                 bp = build_boltz(bspec, ctx.seed)
-        except Exception:
-            bp = None
+            except Exception as exc:  # noqa: BLE001 - reason surfaced below
+                bp = None
+                boltz_error = f"{type(exc).__name__}: {exc}"
+        if bp is None:
+            print(f"[M06][warn] Boltz-2 recompute unavailable ({boltz_error}) "
+                  f"- binding metrics stay proxy for all candidates")
+            cfg.resources.forbid_proxy_degradation(
+                f"Boltz-2 recompute unavailable ({boltz_error})")
         if bp is not None:
             mono = pd.read_csv(out / "monomer_metrics.csv")
             seq_of = dict(zip(mono.design_name, mono.sequence))

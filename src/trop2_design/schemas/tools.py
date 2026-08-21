@@ -22,6 +22,9 @@ class ToolSpec(BaseModel):
     command: list[str] = Field(default_factory=list, description="argv prefix, e.g. [python, run_inference.py]")
     python: Path | None = Field(None, description="interpreter of the tool's own conda env")
     weights: Path | None = None
+    params: Path | None = Field(
+        None, description="model parameter directory, e.g. AF2 weights for the "
+        "af2design gradient tool")
     ssh_host: str | None = Field(
         None, description="dispatch execution to this host via SSH (GPU "
         "node with NFS-shared home), e.g. 'gn1'; None = local run")
@@ -52,6 +55,7 @@ class PredictorSpec(BaseModel):
 class ToolsConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    af2design: ToolSpec | None = None
     rfdiffusion: ToolSpec | None = None
     proteinmpnn: ToolSpec | None = None
     foldseek: ToolSpec | None = None

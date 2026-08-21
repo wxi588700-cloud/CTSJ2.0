@@ -82,6 +82,7 @@ def build_pipeline(ctx: RunContext, manifest: RunManifest) -> WorkflowRunner:
     from ..target_builder import cleave as m02
     from ..epitope import patch as m03
     from ..generation import generate as m04
+    from ..refine import af2_gradient as m04b
     from ..sequence_design import design as m05
     from ..scoring import binding as m06
     from ..scoring import specificity as m07
@@ -113,8 +114,13 @@ def build_pipeline(ctx: RunContext, manifest: RunManifest) -> WorkflowRunner:
               inputs=[out / "epitope_patch.json"],
               outputs=[out / "candidates.fasta", out / "candidate_manifest.csv"],
               description="RFdiffusion adapter + FASTA/PDB import (M04)"),
-        Stage("M05_sequence_design", m05.run,
+        Stage("M04b_gradient_refine", m04b.run,
               depends_on=["M04_generate"],
+              inputs=[out / "candidate_manifest.csv", out / "state_manifest.csv"],
+              outputs=[out / "gradient_log.json"],
+              description="AF2 gradient binder refinement, ported 0.716 recipe (M04b)"),
+        Stage("M05_sequence_design", m05.run,
+              depends_on=["M04b_gradient_refine"],
               inputs=[out / "candidate_manifest.csv"],
               outputs=[out / "monomer_metrics.csv"],
               description="ProteinMPNN adapter + monomer fold filter (M05)"),

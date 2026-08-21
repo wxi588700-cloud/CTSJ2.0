@@ -78,7 +78,7 @@ def _prepare_run(project: Path, tools: Path | None, run_id: str | None,
 
 STAGE_MAP = {
     "prepare": {"M01_target_ingestion", "M02_cleaved_states", "M03_epitope"},
-    "generate": {"M04_generate"},
+    "generate": {"M04_generate", "M04b_gradient_refine"},
     "evaluate": {"M05_sequence_design", "M06_positive_state",
                  "M07_negative_state", "M08_mechanism", "M09_developability"},
     "rank": {"M10_ranking"},

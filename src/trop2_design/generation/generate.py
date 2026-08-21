@@ -180,11 +180,28 @@ def run(ctx) -> None:
         log["rfdiffusion"] = {"status": "ok", "n_pdbs": len(result.pdbs)}
         for pdb in result.pdbs:
             st = read_structure(pdb)
-            ch = first_protein_chain(st, None)
-            seq = gemmi.one_letter_code([r.name for r in polymer_residues(ch)])
+            # CRITICAL FIX (was first_protein_chain -> chain A = TARGET BODY):
+            # RFdiffusion writes the full complex; our own _prepare_input
+            # renamed the target chains to A/B, so the designed binder is the
+            # chain OUTSIDE {A, B}. Storing the target chain as "binder" made
+            # every downstream metric meaningless (target-vs-target).
+            binder = None
+            for ch in st[0]:
+                if ch.name not in ("A", "B") and len(polymer_residues(ch)) >= 10:
+                    binder = ch
+                    break
+            if binder is None:  # defensive fallback: last chain
+                binder = list(st[0])[-1]
+            binder_only = gemmi.Structure()
+            binder_only.name = st.name
+            bmodel = gemmi.Model("1")
+            bmodel.add_chain(binder.clone())
+            binder_only.add_model(bmodel)
+            binder_only.setup_entities()
+            seq = gemmi.one_letter_code([r.name for r in polymer_residues(binder)])
             cid = stable_candidate_id("rfdiffusion", pdb.name)
             dest = raw_dir / f"{cid}.cif"
-            write_cif(st, dest)
+            write_cif(binder_only, dest)
             manifest.append({"candidate_id": cid, "source": "rfdiffusion",
                              "sequence": seq, "file": str(dest),
                              "length": len(seq), "backbone_family": "rfdiffusion"})

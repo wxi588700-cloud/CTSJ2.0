@@ -47,6 +47,11 @@ design:
   import_pdb_dir: null
   fixed_interface_positions: []
   forbidden_aa: [C]             # no unpaired cysteines in designed sequences
+  gradient:                     # M04b AF2梯度精修(移植自trop2-binder,ipTM 0.716配方)
+    enabled: true
+    n_traj: 8
+    binder_len: 80
+    hotspot_top_n: 6
   allowed_aa: null
 
 negatives:

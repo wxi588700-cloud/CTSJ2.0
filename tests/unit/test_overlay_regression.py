@@ -410,3 +410,34 @@ def test_missing_tools_config_no_name_error(tmp_path, capsys):
     except RuntimeError:
         raised = "RuntimeError"
     assert raised == "RuntimeError", f"expected RuntimeError, got {raised}"
+
+
+# --------------------------------------------------- gradient stage (M04b) --
+
+def test_gradient_hotspot_selection_real_schema(tmp_path):
+    """Top-N hotspots from the REAL epitope_patch.json schema (residues list
+    with chain field), spanning BODY(A)/NFR(B); T88 always present."""
+    import json
+    from trop2_design.refine.af2_gradient import select_gradient_hotspots
+    patch = {"residues": [
+        {"residue": "THR", "resnum": 88, "chain": "BODY",
+         "centroid": [0.0, 0.0, 0.0], "mean_sasa": 126.0, "sasa_std": 8.0},
+        {"residue": "LEU", "resnum": 89, "chain": "BODY",
+         "centroid": [3.8, 0.0, 0.0], "mean_sasa": 90.0, "sasa_std": 5.0},
+        {"residue": "ARG", "resnum": 87, "chain": "NFR",
+         "centroid": [0.0, 5.0, 0.0], "mean_sasa": 110.0, "sasa_std": 3.0},
+        {"residue": "VAL", "resnum": 90, "chain": "BODY",
+         "centroid": [7.6, 0.0, 0.0], "mean_sasa": 20.0, "sasa_std": 30.0},
+    ]}
+    f = tmp_path / "epitope_patch.json"
+    f.write_text(json.dumps(patch), encoding="utf-8")
+    hs = select_gradient_hotspots(tmp_path, top_n=3)
+    assert hs[0] == "A88"          # T88 first
+    assert set(hs) <= {"A88", "A89", "B87", "A90"}
+    assert "B87" in hs             # cross-chain neo-epitope included
+
+
+def test_gradient_adapter_available_and_paths(tmp_path):
+    from trop2_design.refine.af2_gradient import INNER_SCRIPT, REPO_ROOT
+    assert INNER_SCRIPT.exists()
+    assert REPO_ROOT.name == "trop2_cis-dimer_inhibitor"

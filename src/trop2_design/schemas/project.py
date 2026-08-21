@@ -114,6 +114,17 @@ class TargetConfig(StrictModel):
     membrane_clearance: float = Field(8.0, ge=2.0, le=30.0, description="Å binder must stay above membrane plane")
 
 
+class GradientConfig(StrictModel):
+    """AF2 gradient refinement (BindCraft-style, ported from trop2-binder
+    where the identical protocol reached Boltz ipTM 0.716)."""
+    enabled: bool = True
+    n_traj: int = Field(8, ge=1, le=64, description="gradient trajectories per run")
+    binder_len: int = Field(80, ge=40, le=200)
+    hotspot_top_n: int = Field(6, ge=1, le=12,
+                               description="top patch residues (by epitope score, "
+                               "0.15 hotspot cut IGNORED here) + T88 as gradient hotspots")
+
+
 class DesignConfig(StrictModel):
     binder_length: tuple[int, int] = (60, 120)
     generator: Literal["rfdiffusion", "import", "both"] = "rfdiffusion"
@@ -124,6 +135,7 @@ class DesignConfig(StrictModel):
     import_fasta: Path | None = None
     import_pdb_dir: Path | None = None
     fixed_interface_positions: list[int] = Field(default_factory=list)
+    gradient: GradientConfig = GradientConfig()
     forbidden_aa: list[str] = Field(default_factory=lambda: ["C"], description="single letters disallowed in designed seqs")
     allowed_aa: list[str] | None = None
 

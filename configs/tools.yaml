@@ -12,6 +12,14 @@
 # LICENSE note (PRD NFR): RFdiffusion + ProteinMPNN weights are for
 # non-commercial research; record and re-review before any commercial use.
 
+af2design:
+  # AF2 gradient binder design (ported from trop2-binder, proven recipe):
+  # runs in the *design* conda env (jax+colabdesign) on the GPU node.
+  root: scripts          # inner script: scripts/af2_gradient_inner.py
+  python: ~/miniconda3/envs/design/bin/python
+  params: /home/protein_design2026/external/af2_params
+  ssh_host: gn1
+
 rfdiffusion:
   root: external/RFdiffusion
   # RFdiffusion deps installed into the boltz env (dgl==1.1.3, vendored

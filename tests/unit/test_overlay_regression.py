@@ -431,16 +431,18 @@ def test_gradient_hotspot_selection_real_schema(tmp_path):
     ]}
     f = tmp_path / "epitope_patch.json"
     f.write_text(json.dumps(patch), encoding="utf-8")
-    hs = select_gradient_hotspots(tmp_path, top_n=3)
+    # dynamic chain map as produced by prepare_target_pdb in production
+    chain_map = {88: "A", 89: "A", 87: "B", 90: "A"}
+    hs = select_gradient_hotspots(tmp_path, top_n=3, chain_map=chain_map)
     assert hs[0] == "A88"          # T88 first
     assert set(hs) <= {"A88", "A89", "B87", "A90"}
     assert "B87" in hs             # cross-chain neo-epitope included
 
 
 def test_gradient_adapter_available_and_paths(tmp_path):
-    from trop2_design.refine.af2_gradient import INNER_SCRIPT, REPO_ROOT
-    assert INNER_SCRIPT.exists()
-    assert REPO_ROOT.name == "trop2_cis-dimer_inhibitor"
+    # no fixed directory-name assertion: the repo may live anywhere
+    from trop2_design.refine.af2_gradient import INNER_SCRIPT
+    assert INNER_SCRIPT.exists() and INNER_SCRIPT.name == "af2_gradient_inner.py"
 
 
 # ------------------------------------------- external-review fixes (v3) ---

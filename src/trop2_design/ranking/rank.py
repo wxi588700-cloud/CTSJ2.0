@@ -31,6 +31,10 @@ def _collect(out: Path) -> pd.DataFrame:
     mech = pd.read_csv(out / "mechanism_metrics.csv")
     dev = pd.read_csv(out / "developability_metrics.csv")
     mono = pd.read_csv(out / "monomer_metrics.csv")
+    try:
+        cand_man = pd.read_csv(out / "candidate_manifest.csv")
+    except Exception:
+        cand_man = pd.DataFrame()
 
     rows = []
     # PRD v1.1 AC-26: outputs carry the target bundle id when present
@@ -89,6 +93,15 @@ def _collect(out: Path) -> pd.DataFrame:
         pos_src = str(r.get("metric_source", "proxy"))
         mono_src = (str(mm.iloc[0].metric_source)
                     if (not mm.empty and "metric_source" in mm.columns) else "proxy")
+        # AF2 (ColabDesign) self-reported design metrics for M04b candidates
+        if not cand_man.empty:
+            cm_row = cand_man[cand_man.candidate_id == r.candidate_id]
+            if not cm_row.empty:
+                for col in ("af2_plddt", "af2_iptm", "af2_ipae"):
+                    v = cm_row.iloc[0].get(col)
+                    row[col] = None if pd.isna(v) else v
+        row["af2_source"] = ("colabdesign-af2(self-report)"
+                             if row.get("af2_iptm") is not None else "")
         row["complex_iptm_source"] = pos_src
         row["fold_plddt_source"] = mono_src
         row["intact_risk_source"] = "proxy"     # M07 geometric pose transfer
@@ -199,7 +212,17 @@ def run(ctx) -> None:
                     base + "; " + extra if base not in ("", "nan") else extra)
 
     # ---- normalised objectives + Pareto among gate survivors
-    df["fold_plddt_norm"] = normalise(df["fold_plddt"].to_numpy(), "maximize") * 100.0
+    # audit fix: defensive column init - with zero gate survivors (or an
+    # empty monomer table) these columns must still EXIST, otherwise every
+    # downstream consumer (report, predict.py) KeyErrors on them
+    for _c in ("fold_plddt", "pareto_rank", "weighted_display_score",
+               "robust_positive", "worst_offtarget", "uncertainty_penalty",
+               "robust_selectivity"):
+        if _c not in df.columns:
+            df[_c] = np.nan
+    df["fold_plddt_norm"] = normalise(
+        df["fold_plddt"].astype(float).to_numpy(), "maximize") * 100.0
+    df["pareto_rank"] = np.nan            # filled below for survivors only
     survivors = df[df.hard_filter_status != "reject"].copy()
     # objectives whose columns are missing (e.g. empty mechanism table after
     # the measured predictor rejected every design) are skipped, never zero-

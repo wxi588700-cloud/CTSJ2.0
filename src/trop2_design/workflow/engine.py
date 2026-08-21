@@ -18,7 +18,11 @@ from typing import Callable
 from ..schemas.results import RunManifest, StageStatus, utcnow
 from ..io import content_hash, sha256_file, write_json
 
-CODE_VERSION = "1.1.0"
+try:
+    from importlib.metadata import version as _pkg_ver
+    CODE_VERSION = _pkg_ver("trop2-cis-dimer-inhibitor")
+except Exception:
+    CODE_VERSION = "3.3.0"
 
 
 def git_commit(repo: Path) -> str:

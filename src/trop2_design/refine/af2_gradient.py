@@ -48,7 +48,10 @@ def prepare_target_pdb(cif_path: Path, workdir: Path) -> tuple[Path, dict[int, s
 
 
 def select_gradient_hotspots(out: Path, top_n: int,
+                             chain_map: dict[int, str] | None = None,
                              radius: float = 10.0) -> list[str]:
+    """chain_map: {resnum: chain_letter} from prepare_target_pdb (dynamic,
+    no hardcoded BODY/NFR assumptions)."""
     """Top patch residues by epitope score (the 0.15 hotspot cut ignored -
     it degenerates to T88-only) + T88 always included; returns author-number
     residues as '{resname}{num}'."""
@@ -71,9 +74,17 @@ def select_gradient_hotspots(out: Path, top_n: int,
     picked = [rec for _s, rec in scored[: top_n]]
     if t88 is not None and t88 not in picked:
         picked.insert(0, t88)
-    # chain BODY -> A, NFR -> B (conversion order in prepare_target_pdb)
-    letter = {"BODY": "A", "NFR": "B"}
-    return [f"{letter.get(rec.get('chain'), 'A')}{rec['resnum']}" for rec in picked[:top_n]]
+    chain_map = chain_map or {}
+    out_hs = []
+    for rec in picked[:top_n]:
+        letter = chain_map.get(rec["resnum"])
+        if letter is None:
+            # dynamic fallback: first converted chain (A) - with a warning
+            print(f"[M04b][warn] residue {rec['resnum']} not in chain map; "
+                  f"defaulting to chain A")
+            letter = "A"
+        out_hs.append(f"{letter}{rec['resnum']}")
+    return out_hs
 
 
 class Af2GradientAdapter:
@@ -156,7 +167,9 @@ def run(ctx) -> None:
     out = ctx.out
     grad_cfg = getattr(cfg.design, "gradient", None)
     if grad_cfg is None or not grad_cfg.enabled:
-        ctx.state["gradient"] = {"status": "disabled"}
+        log = {"status": "disabled"}
+        write_json(out / "gradient_log.json", log)
+        ctx.state["gradient"] = log
         return
 
     spec = getattr(ctx.tools, "af2design", None) if ctx.tools else None
@@ -165,7 +178,9 @@ def run(ctx) -> None:
     if not ok:
         # same fail-fast policy as the other generation paths
         cfg.resources.forbid_proxy_degradation(f"AF2 gradient design ({why})")
-        ctx.state["gradient"] = {"status": "unavailable", "reason": why}
+        log = {"status": "unavailable", "reason": why}
+        write_json(out / "gradient_log.json", log)
+        ctx.state["gradient"] = log
         return
 
     state_df = pd.read_csv(out / "state_manifest.csv")
@@ -173,7 +188,7 @@ def run(ctx) -> None:
     target_cif = Path(cleaved.iloc[0].file)
     target_pdb, chain_of = prepare_target_pdb(target_cif, out / "gradient_work")
 
-    hot_pdb = select_gradient_hotspots(out, grad_cfg.hotspot_top_n)
+    hot_pdb = select_gradient_hotspots(out, grad_cfg.hotspot_top_n, chain_of)
 
     results = adapter.design(
         target_pdb, "A,B", hot_pdb,
@@ -189,8 +204,14 @@ def run(ctx) -> None:
     fasta_lines = [ln for ln in fasta_path.read_text(encoding="utf-8").splitlines()
                    if ln] if fasta_path.exists() else []
 
+    # max_candidates semantics (audit fix): TOTAL candidates (M04 + M04b)
+    # are capped by design.max_candidates; gradient candidates fill the
+    # remaining budget and never silently exceed it
+    budget = max(0, cfg.design.max_candidates - len(man))
     n_added = 0
     for r in designed:
+        if n_added >= budget:
+            break
         pdb = Path(r["pdb"])
         if not pdb.exists():
             continue
@@ -215,7 +236,14 @@ def run(ctx) -> None:
         write_cif(binder_only, dest)
         man.append({"candidate_id": cid, "source": "af2_gradient",
                     "sequence": r["sequence"], "file": str(dest),
-                    "length": r["length"], "backbone_family": "af2_gradient"})
+                    "length": r["length"], "backbone_family": "af2_gradient",
+                    # AF2 (ColabDesign) SELF-REPORTED metrics - formally
+                    # integrated for provenance; NOT a substitute for the
+                    # Boltz-2 cross-validation in M06 (binder-project
+                    # evidence: AF2 self-ipTM ~0.1 while Boltz measured 0.7)
+                    "af2_plddt": r.get("binder_plddt"),
+                    "af2_iptm": r.get("i_ptm"),
+                    "af2_ipae": r.get("i_pae")})
         fasta_lines += [f">{cid}|af2_gradient|plddt={r['binder_plddt']}|"
                         f"af2_iptm={r['i_ptm']}", r["sequence"]]
         n_added += 1
@@ -224,6 +252,9 @@ def run(ctx) -> None:
     if fasta_lines:
         fasta_path.write_text("\n".join(fasta_lines) + "\n", encoding="utf-8")
     log = {"status": "ok", "n_designed": len(designed), "n_added": n_added,
+           "max_candidates_budget": budget,
+           "budget_note": ("budget exhausted by M04 - no gradient candidates "
+                           "added" if budget == 0 and designed else ""),
            "hotspots": hot_pdb, "results": results}
     write_json(out / "gradient_log.json", log)
     ctx.state["gradient"] = log

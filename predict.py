@@ -24,7 +24,19 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "src"))
 
 TRACK = "生命科学挑战赛-蛋白质设计 (TROP2 cis-dimer inhibitor)"
-PLATFORM_VERSION = "trop2_cis-dimer_inhibitor v1.0.0"
+def _platform_version() -> str:
+    """pyproject.toml is the single source of truth (installed editable-env
+    metadata was observed drifting to 1.0.0)."""
+    try:
+        import tomllib
+        data = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+        v = data["project"]["version"]
+    except Exception:
+        v = "3.3.1"
+    return f"trop2_cis_dimer_inhibitor v{v}"
+
+
+PLATFORM_VERSION = _platform_version()
 
 # 关键预测指标列 (原始值 + 方向在 docs/acceptance_mapping.md 附录A)
 METRIC_COLS = [

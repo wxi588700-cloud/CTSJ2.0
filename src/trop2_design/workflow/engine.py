@@ -19,10 +19,11 @@ from ..schemas.results import RunManifest, StageStatus, utcnow
 from ..io import content_hash, sha256_file, write_json
 
 try:
-    from importlib.metadata import version as _pkg_ver
-    CODE_VERSION = _pkg_ver("trop2-cis-dimer-inhibitor")
+    import tomllib as _toml
+    _pyproject = Path(__file__).resolve().parents[2] / "pyproject.toml"
+    CODE_VERSION = _toml.loads(_pyproject.read_text(encoding="utf-8"))["project"]["version"]
 except Exception:
-    CODE_VERSION = "3.3.0"
+    CODE_VERSION = "3.3.1"
 
 
 def git_commit(repo: Path) -> str:

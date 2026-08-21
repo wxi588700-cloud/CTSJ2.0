@@ -138,14 +138,17 @@ def main() -> int:
             elif col == "t88_terminal_contact":
                 src_col = "t88_contact"
             row[col] = r.get(src_col)
-        # audit fix: annotation was STATIC "proxy/heuristic-geometry" even
-        # for Boltz-measured runs - propagate the per-candidate truth
-        src_truth = str(r.get("metric_source", "proxy"))
-        predictor_truth = ("boltz-2" if src_truth == "measured"
-                           else "heuristic-geometry")
+        # audit fix v2 (external review P0): per-metric provenance summary -
+        # the old single predictor label implied the WHOLE row came from it
+        iptm_src = str(r.get("complex_iptm_source", r.get("metric_source", "proxy")))
+        fold_src = str(r.get("fold_plddt_source", "proxy"))
+        neg_src = str(r.get("intact_risk_source", "proxy"))
+        mhc_src = str(r.get("mhc2_source", "proxy"))
         row["对应模型与运行版本(model_and_version)"] = (
             f"{PLATFORM_VERSION}; run_id={run_dir.name}; "
-            f"metric_source={src_truth}; predictor={predictor_truth}")
+            f"iptm={iptm_src}; fold={fold_src}; "
+            f"negatives={neg_src}(geometric); mhc2={mhc_src}(heuristic); "
+            f"mechanism=geometry-superposition")
         row["随机种子(seed)"] = manifest.get("seed", "")
         row["结构文件(structure_files)"] = ";".join(struct_files)
         row["备注(notes)"] = (

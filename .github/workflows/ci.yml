@@ -14,6 +14,8 @@ jobs:
           python-version: "3.11"
       - run: pip install -e ".[dev]"
       - run: pytest tests/unit -q
+      - name: integration tests (e2e on synthetic mini target)
+        run: pytest tests/integration -q
         env:
           # fixtures are synthetic; no network or GPU needed
           TROP2_CI: "1"

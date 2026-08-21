@@ -117,8 +117,9 @@ scripts/setup_external_tools.sh <本地已下载目录>   # 复制到 external/�
 mmCIF，坐标单位 Å，链命名 NFR=裂解 N 端片段 / BODY=主体 / BND=binder / T=完整
 TROP2）· 备注（可追溯淘汰原因）。
 
-提交示例（`results/`）来自真实端到端运行：**72 个设计序列、6 个通过全部硬门槛、
-6 个序列家族**，配套 `example_report.html` 与全部审计文件（`logs/`）。
+提交示例（`results/`）：当前 results.csv 为 **16 个设计、全部 `review`（0 通过硬门槛）**
+——诚实评估链下回退骨架候选的真实状态，配套勘误见 `results/README.md`；
+正式结果包待全流程（真实 RFdiffusion + AF2 梯度精修 + Boltz 实测）重跑后重新生成。
 
 ## 6. 可复现性与溯源
 

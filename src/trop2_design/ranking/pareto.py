@@ -100,12 +100,20 @@ def pairwise_identity(a: str, b: str) -> float:
 
 
 def apply_gates(row: dict, gates) -> tuple[str, list[str]]:
-    """Evaluate hard gates; returns (status, reasons)."""
+    """Evaluate hard gates; returns (status, reasons).
+
+    Audit fix (external review P0): a missing metric must NOT short-circuit
+    the evaluation - a candidate that already violates earlier gates stays
+    "reject" (with the missing metric noted); "review" only applies when no
+    hard failure is determined.
+    """
     reasons = []
+    missing = []
     for gate in gates:
         value = row.get(gate.metric)
         if value is None or (isinstance(value, float) and np.isnan(value)):
-            return "review", [f"{gate.metric}: missing -> review (never zero)"]
+            missing.append(f"{gate.metric}: missing -> review (never zero)")
+            continue
         if gate.op == ">=" and not float(value) >= float(gate.threshold):
             reasons.append(f"{gate.reject_message or gate.metric} "
                            f"({gate.metric}={value} < {gate.threshold})")
@@ -119,7 +127,9 @@ def apply_gates(row: dict, gates) -> tuple[str, list[str]]:
                                       (isinstance(value, float) and np.isnan(value))):
             reasons.append(f"{gate.metric} missing")
     if reasons:
-        return "reject", reasons
+        return "reject", reasons + missing
+    if missing:
+        return "review", missing
     return "pass", []
 
 

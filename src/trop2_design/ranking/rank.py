@@ -83,14 +83,20 @@ def _collect(out: Path) -> pd.DataFrame:
         if not mm.empty:
             row["fold_plddt"] = mm.iloc[0].fold_plddt
             row["sequence"] = mm.iloc[0].sequence
-        # audit fix: metric_source was HARDCODED "proxy", hiding Boltz-measured
-        # candidates in the final table. A candidate is "measured" when either
-        # its positive-state complex or its monomer was really predicted.
+        # audit fix v2 (external review P0): per-metric provenance columns -
+        # a single row-level "measured" label hid that negatives/mechanism/
+        # developability remain geometric proxies.
         pos_src = str(r.get("metric_source", "proxy"))
         mono_src = (str(mm.iloc[0].metric_source)
                     if (not mm.empty and "metric_source" in mm.columns) else "proxy")
+        row["complex_iptm_source"] = pos_src
+        row["fold_plddt_source"] = mono_src
+        row["intact_risk_source"] = "proxy"     # M07 geometric pose transfer
+        row["epcam_risk_source"] = "proxy"      # M07 patch proxy
+        row["mechanism_source"] = "geometry"    # M08 superposition
+        row["mhc2_source"] = "proxy"            # heuristic until real adapter
         row["metric_source"] = ("measured" if "measured" in (pos_src, mono_src)
-                                else "proxy")
+                                else "proxy")  # row-level: ANY measured part
         rows.append(row)
     return pd.DataFrame(rows)
 

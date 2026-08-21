@@ -123,6 +123,8 @@ def v1_strict_profile() -> HardFilterProfile:
                      reject_message="unacceptable membrane/glycan collision"),
             GateRule(metric="fold_plddt", op=">=", threshold=70.0,
                      reject_message="binder monomer does not fold confidently"),
+            GateRule(metric="cis_block", op=">=", threshold=0.15,
+                     reject_message="insufficient cis-interface blocking (core cis-dimer inhibitor mechanism)"),
             # aggregation_risk is a RELATIVE score (appendix A); 0.70 marks the
         # "obvious self-aggregation" regime for the V1 heuristic scorer
         GateRule(metric="aggregation_risk", op="<=", threshold=0.70,

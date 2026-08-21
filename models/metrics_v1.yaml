@@ -30,7 +30,7 @@ metrics:
   description: fraction of cleaved states with direct T88 contact
   source: atom geometry
   proxy_allowed: true
-- name: positive_pass_rate
+- name: positive_state_pass_rate
   direction: maximize
   unit: 0-1
   description: fraction of cleaved conformers passing binding thresholds
@@ -66,13 +66,13 @@ metrics:
   description: glycan and membrane collisions
   source: spatial geometry
   proxy_allowed: true
-- name: shape_complementarity
+- name: shape_complementarity   # NOTE: not aggregated into candidate_metrics.csv by M10; display weight unused
   direction: maximize
   unit: 0-1
   description: interface shape complementarity
   source: interface analyzer
   proxy_allowed: true
-- name: buried_unsat
+- name: buried_unsat   # NOTE: not aggregated into candidate_metrics.csv by M10; display weight unused
   direction: minimize
   unit: count
   description: buried unsatisfied polar atoms

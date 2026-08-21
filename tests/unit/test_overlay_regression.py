@@ -441,3 +441,66 @@ def test_gradient_adapter_available_and_paths(tmp_path):
     from trop2_design.refine.af2_gradient import INNER_SCRIPT, REPO_ROOT
     assert INNER_SCRIPT.exists()
     assert REPO_ROOT.name == "trop2_cis-dimer_inhibitor"
+
+
+# ------------------------------------------- external-review fixes (v3) ---
+
+def test_apply_gates_reject_beats_missing():
+    """External review P0: a missing metric must not mask DETERMINED gate
+    failures - reject wins over review; missing is only noted."""
+    from trop2_design.ranking.pareto import apply_gates
+    from trop2_design.schemas.metrics import GateRule
+    gates = [
+        GateRule(metric="positive_state_pass_rate", op=">=", threshold=0.2,
+                 reject_message="not reproducibly predicted"),
+        GateRule(metric="t88_contact", op="==", threshold=True,
+                 reject_message="no T88 recognition"),
+        GateRule(metric="intact_risk", op="<=", threshold=0.55,
+                 reject_message="binds intact"),
+    ]
+    # fails first two gates, intact_risk missing -> REJECT (was: review)
+    status, reasons = apply_gates(
+        {"positive_state_pass_rate": 0.0, "t88_contact": False}, gates)
+    assert status == "reject"
+    assert any("not reproducibly predicted" in r for r in reasons)
+    assert any("missing" in r for r in reasons)   # missing noted, not masking
+    # only missing -> review (policy unchanged)
+    status, reasons = apply_gates({"intact_risk": None}, gates)
+    assert status == "review"
+    # all pass -> pass
+    status, _ = apply_gates(
+        {"positive_state_pass_rate": 0.5, "t88_contact": True,
+         "intact_risk": 0.3}, gates)
+    assert status == "pass"
+
+
+def test_hard_filter_yaml_matches_fallback_profile():
+    """Drift guard (external review P1): the YAML profile and the in-code
+    fallback must define the SAME gates - otherwise yaml-present/absent
+    silently changes the filtering rules."""
+    import yaml as _yaml
+    from trop2_design.schemas.metrics import v1_strict_profile
+    prof = _yaml.safe_load(open("models/hard_filter_v1_strict.yaml",
+                                encoding="utf-8"))
+    yaml_gates = {(g["metric"], g["op"], g["threshold"]) for g in prof["gates"]}
+    code_gates = {(g.metric, g.op, g.threshold) for g in v1_strict_profile().gates}
+    assert yaml_gates == code_gates
+    assert ("cis_block", ">=", 0.15) in code_gates
+    # no duplicate keys per gate (the v3.1.1 yaml bug)
+    for g in prof["gates"]:
+        assert len(g["reject_message"]) >= 0
+        keys = [k for k in g.keys()]
+        assert len(keys) == len(set(keys))
+
+
+def test_model_content_hash_distinguishes_configs():
+    """Cache-key fix guard: differing configs must yield differing hashes."""
+    from trop2_design.workflow.engine import _model_content_hash
+    from trop2_design.schemas.project import ProjectConfig
+    base = ProjectConfig.from_yaml(Path("configs/trop2_v1.yaml"))
+    a = base
+    b = base.model_copy(update={"design": base.design.model_copy(
+        update={"max_candidates": base.design.max_candidates + 1})})
+    h1, h2 = _model_content_hash(a), _model_content_hash(b)
+    assert h1 != h2 and h1 == _model_content_hash(a)
+    assert _model_content_hash(None) == "none"

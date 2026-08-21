@@ -50,6 +50,16 @@ class Stage:
     description: str = ""
 
 
+def _model_content_hash(model) -> str:
+    """Stable content hash of a pydantic config model (None-safe)."""
+    if model is None:
+        return "none"
+    try:
+        return content_hash(model.model_dump(mode="json"))
+    except Exception:
+        return content_hash(str(model))
+
+
 class RunContext:
     """Everything a stage may need: paths, config, tools, and shared state."""
 
@@ -111,6 +121,11 @@ class WorkflowRunner:
                 (str(p), sha256_file(p)) for p in stage.inputs if p.exists()
             ),
             "outputs": sorted(str(p) for p in stage.outputs),
+            # audit fix (external review P1): config/tools were NOT part of
+            # the key - changing thresholds or design parameters but reusing
+            # the same run_id could wrongly hit the old cache
+            "config": _model_content_hash(self.ctx.config),
+            "tools": _model_content_hash(self.ctx.tools),
         }
         return content_hash(payload)
 

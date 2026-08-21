@@ -242,6 +242,9 @@ def run(ctx) -> None:
         # audit fix: MHC-II risk silently degrades to a deterministic proxy
         ctx.config.resources.forbid_proxy_degradation(
             "NetMHCIIpan immunogenicity screening")
+    elif netmhc_available:
+        print("[M09][warn] netMHCIIpan binary found but no execution adapter "
+              "is implemented - MHC-II risk stays heuristic (labelled proxy)")
 
     rows: list[dict] = []
     flags_rows: list[dict] = []
@@ -273,7 +276,11 @@ def run(ctx) -> None:
                     [p["propensity"] for p in mhc_peptides[:5]])), 3)
             else:
                 mhc2_risk = 0.0
-            mhc_source = "proxy" if not netmhc_available else "netmhc2pan"
+            # audit fix (external review P0): the adapter has NO execution
+            # path (available() only) - the value is ALWAYS the heuristic;
+            # labelling it netmhc2pan when the binary exists was a
+            # provenance lie.
+            mhc_source = "proxy"
 
             rows.append({
                 "candidate_id": cid, "design_name": mrow.design_name,

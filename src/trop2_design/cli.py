@@ -108,6 +108,28 @@ def run(
         if not selected:
             selected = None
 
+    # audit fix (external review P1): running a stage subset in a NEW run
+    # directory must include the dependency closure, otherwise required
+    # inputs (e.g. epitope_patch.json for M04) do not exist yet
+    if selected and run_id is None:
+        from .workflow import build_context, build_manifest, build_pipeline
+        _cfg, _tools = _load_configs(project, tools)
+        _root = _project_root(project)
+        _ctx, _man = build_context(_root, _cfg, _tools, run_id), None
+        _runner = build_pipeline(_ctx, _man) if _man else build_pipeline(_ctx, build_manifest(_root, _cfg, _tools, _ctx))
+        deps = {s.name: set(s.depends_on) for s in _runner.stages}
+        closure = set(selected)
+        frontier = list(closure)
+        while frontier:
+            for dep in deps.get(frontier.pop(), ()):
+                if dep not in closure:
+                    closure.add(dep)
+                    frontier.append(dep)
+        if closure != selected:
+            typer.echo(f"[trop2] dependency closure: "
+                       f"{sorted(selected)} -> {sorted(closure)}")
+        selected = closure
+
     project = project.resolve()
     ctx, runner = _prepare_run(project, tools, run_id, selected, resume=True)
     typer.echo(f"[trop2] run directory: {ctx.out}")
@@ -120,27 +142,35 @@ def run(
 
 
 @app.command()
-def prepare(project: Path = typer.Option("configs/trop2_v1.yaml")) -> None:
+def prepare(project: Path = typer.Option("configs/trop2_v1.yaml"),
+         run_id: str | None = typer.Option(None,
+         help="reuse an existing run directory (deps must be complete)")) -> None:
     """Stages M01-M03: ingestion, cleaved states, epitope."""
-    run(project=project, stages="prepare", run_id=None, tools=None)
+    run(project=project, stages="prepare", run_id=run_id, tools=None)
 
 
 @app.command()
-def generate(project: Path = typer.Option("configs/trop2_v1.yaml")) -> None:
+def generate(project: Path = typer.Option("configs/trop2_v1.yaml"),
+         run_id: str | None = typer.Option(None,
+         help="reuse an existing run directory (deps must be complete)")) -> None:
     """Stage M04: candidate generation + import."""
-    run(project=project, stages="generate", run_id=None, tools=None)
+    run(project=project, stages="generate", run_id=run_id, tools=None)
 
 
 @app.command()
-def evaluate(project: Path = typer.Option("configs/trop2_v1.yaml")) -> None:
+def evaluate(project: Path = typer.Option("configs/trop2_v1.yaml"),
+         run_id: str | None = typer.Option(None,
+         help="reuse an existing run directory (deps must be complete)")) -> None:
     """Stages M05-M09: sequence design, positive/negative states, mechanism, developability."""
-    run(project=project, stages="evaluate", run_id=None, tools=None)
+    run(project=project, stages="evaluate", run_id=run_id, tools=None)
 
 
 @app.command()
-def rank(project: Path = typer.Option("configs/trop2_v1.yaml")) -> None:
+def rank(project: Path = typer.Option("configs/trop2_v1.yaml"),
+         run_id: str | None = typer.Option(None,
+         help="reuse an existing run directory (deps must be complete)")) -> None:
     """Stage M10: hard gates, Pareto ranking, shortlist."""
-    run(project=project, stages="rank", run_id=None, tools=None)
+    run(project=project, stages="rank", run_id=run_id, tools=None)
 
 
 @app.command()

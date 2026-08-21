@@ -67,7 +67,8 @@ class TestGates:
             "intact_risk": 0.1, "epcam_risk": 0.2,
             "glycan_membrane_clash": 0, "fold_plddt": 85.0,
             "aggregation_risk": 0.3, "trans_occlusion": 0.1,
-        }
+                "cis_block": 0.5,
+    }
         status, reasons = apply_gates(row, v1_strict_profile().gates)
         assert status == "pass", reasons
 

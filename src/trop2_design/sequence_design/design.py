@@ -311,6 +311,7 @@ def run(ctx) -> None:
                 cpr = None
             # scaffold CA trace for bound/unbound RMSD when Boltz measures it
             scaffold_ca = ca_pts  # radial-layering CA trace (same backbone)
+            fold_min = getattr(cfg.design, "fold_plddt_min", FOLD_PLDDT_MIN)
             pred = MonomerPredictor(ctx.tools, seed=ctx.seed,
                                     workdir=out / "boltz_mono",
                                     allow_proxy=cfg.resources.allow_proxy_metrics).predict(
@@ -331,7 +332,7 @@ def run(ctx) -> None:
                 "monomer_model": model_path,
                 "metric_source": pred["metric_source"],
                 "predictor": pred["predictor"],
-                "status": "pass" if pred["fold_plddt"] >= FOLD_PLDDT_MIN else "filtered_fold",
+                "status": "pass" if pred["fold_plddt"] >= fold_min else "filtered_fold",
             })
             fasta_records.append((name, seq))
 
@@ -342,7 +343,7 @@ def run(ctx) -> None:
         "proteinmpnn_available": mpnn_ok,
         "proteinmpnn_note": mpnn_reason,
         "n_designed": len(rows),
-        "fold_threshold": FOLD_PLDDT_MIN,
+        "fold_threshold": getattr(cfg.design, "fold_plddt_min", FOLD_PLDDT_MIN),
     })
 
     passing = metrics[metrics.status == "pass"]

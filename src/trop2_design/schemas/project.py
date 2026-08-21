@@ -136,6 +136,11 @@ class DesignConfig(StrictModel):
     import_pdb_dir: Path | None = None
     fixed_interface_positions: list[int] = Field(default_factory=list)
     gradient: GradientConfig = GradientConfig()
+    fold_plddt_min: float = Field(
+        65.0, ge=40.0, le=95.0,
+        description="M05 monomer fold gate (was 70.0; lowered to rescue "
+        "high-AF2-iptm designs that trade fold confidence for interface "
+        "design - traj7 af2_iptm=0.458 died at 69.6)")
     forbidden_aa: list[str] = Field(default_factory=lambda: ["C"], description="single letters disallowed in designed seqs")
     allowed_aa: list[str] | None = None
 

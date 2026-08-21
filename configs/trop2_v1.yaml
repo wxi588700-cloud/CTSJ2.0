@@ -47,6 +47,7 @@ design:
   import_pdb_dir: null
   fixed_interface_positions: []
   forbidden_aa: [C]             # no unpaired cysteines in designed sequences
+  fold_plddt_min: 65.0          # M05折叠门(70→65: 抢救af2_iptm 0.458因69.6惜败的界面型候选)
   gradient:                     # M04b AF2梯度精修(移植自trop2-binder,ipTM 0.716配方)
     enabled: true
     n_traj: 8

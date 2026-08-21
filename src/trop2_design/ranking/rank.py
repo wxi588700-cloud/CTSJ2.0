@@ -90,7 +90,14 @@ def _collect(out: Path) -> pd.DataFrame:
         # audit fix v2 (external review P0): per-metric provenance columns -
         # a single row-level "measured" label hid that negatives/mechanism/
         # developability remain geometric proxies.
-        pos_src = str(r.get("metric_source", "proxy"))
+        pos_src = r.get("metric_source")
+        if pos_src is None or (isinstance(pos_src, float) and pd.isna(pos_src)):
+            # AGGREGATE rows may lack metric_source: infer from per-state rows
+            _ps = pos[(pos.candidate_id == r.candidate_id) &
+                      (pos.design_name == r.design_name)]
+            pos_src = ("measured" if (_ps.metric_source == "measured").any()
+                       else "proxy") if not _ps.empty else "proxy"
+        pos_src = str(pos_src)
         mono_src = (str(mm.iloc[0].metric_source)
                     if (not mm.empty and "metric_source" in mm.columns) else "proxy")
         # AF2 (ColabDesign) self-reported design metrics for M04b candidates

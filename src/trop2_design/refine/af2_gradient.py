@@ -212,10 +212,17 @@ def run(ctx) -> None:
     fasta_lines = [ln for ln in fasta_path.read_text(encoding="utf-8").splitlines()
                    if ln] if fasta_path.exists() else []
 
-    # max_candidates semantics (audit fix): TOTAL candidates (M04 + M04b)
-    # are capped by design.max_candidates; gradient candidates fill the
-    # remaining budget and never silently exceed it
-    budget = max(0, cfg.design.max_candidates - len(man))
+    # max_candidates semantics v2 (production lesson): gradient candidates
+    # are the HIGHEST-VALUE designs (0.716-recipe) and must not be squeezed
+    # out by M04 filling the whole budget - reserve a quota for them:
+    #   reserved = min(n_traj, ceil(max_candidates / 2))
+    #   M04 keeps max_candidates - reserved slots (enforced in generate.py)
+    # gradient then fills up to the reserve even if M04 under-delivers.
+    import math
+    reserved = min(grad_cfg.n_traj,
+                   math.ceil(cfg.design.max_candidates / 2))
+    budget = max(0, cfg.design.max_candidates - len(man) + reserved)
+    budget = min(budget, len(designed))  # cannot add more than designed
     n_added = 0
     for r in designed:
         if n_added >= budget:

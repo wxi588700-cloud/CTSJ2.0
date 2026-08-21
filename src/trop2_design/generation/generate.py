@@ -162,7 +162,13 @@ def run(ctx) -> None:
         if line and not line.startswith("#"):
             hotspots.append(line.split()[0].lstrip("#"))
 
-    n_gen = cfg.design.max_candidates  # imports are additive on top
+    # reserve slots for the higher-value M04b gradient candidates:
+    # M04 (RFdiffusion/fallback) fills at most max_candidates - reserved
+    import math as _math
+    _grad = getattr(cfg.design, "gradient", None)
+    _reserved = (min(_grad.n_traj, _math.ceil(cfg.design.max_candidates / 2))
+                 if _grad and _grad.enabled else 0)
+    n_gen = max(1, cfg.design.max_candidates - _reserved)  # imports additive
 
     # ---- 1) RFdiffusion adapter (smoke-capable)
     adapter = RfdiffusionAdapter(ctx.tools.rfdiffusion if ctx.tools else None,

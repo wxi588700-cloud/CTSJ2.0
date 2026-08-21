@@ -146,7 +146,8 @@ def prepare(project: Path = typer.Option("configs/trop2_v1.yaml"),
          run_id: str | None = typer.Option(None,
          help="reuse an existing run directory (deps must be complete)")) -> None:
     """Stages M01-M03: ingestion, cleaved states, epitope."""
-    run(project=project, stages="prepare", run_id=run_id, tools=None)
+    run(project=project, tools=Path("configs/tools.yaml"),
+        stages="prepare", run_id=run_id)
 
 
 @app.command()
@@ -154,7 +155,8 @@ def generate(project: Path = typer.Option("configs/trop2_v1.yaml"),
          run_id: str | None = typer.Option(None,
          help="reuse an existing run directory (deps must be complete)")) -> None:
     """Stage M04: candidate generation + import."""
-    run(project=project, stages="generate", run_id=run_id, tools=None)
+    run(project=project, tools=Path("configs/tools.yaml"),
+        stages="generate", run_id=run_id)
 
 
 @app.command()
@@ -162,7 +164,8 @@ def evaluate(project: Path = typer.Option("configs/trop2_v1.yaml"),
          run_id: str | None = typer.Option(None,
          help="reuse an existing run directory (deps must be complete)")) -> None:
     """Stages M05-M09: sequence design, positive/negative states, mechanism, developability."""
-    run(project=project, stages="evaluate", run_id=run_id, tools=None)
+    run(project=project, tools=Path("configs/tools.yaml"),
+        stages="evaluate", run_id=run_id)
 
 
 @app.command()
@@ -170,7 +173,8 @@ def rank(project: Path = typer.Option("configs/trop2_v1.yaml"),
          run_id: str | None = typer.Option(None,
          help="reuse an existing run directory (deps must be complete)")) -> None:
     """Stage M10: hard gates, Pareto ranking, shortlist."""
-    run(project=project, stages="rank", run_id=run_id, tools=None)
+    run(project=project, tools=Path("configs/tools.yaml"),
+        stages="rank", run_id=run_id)
 
 
 @app.command()

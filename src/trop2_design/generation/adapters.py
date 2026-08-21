@@ -130,6 +130,15 @@ class RfdiffusionAdapter:
             # run tree is under the repo), /tmp is NOT shared between nodes
             import shlex
             dev = os.environ.get("TROP2_BOLTZ_DEVICE", "6")
+            # shared-card guard: wait for free memory instead of OOM (a
+            # neighbour process once held 46/48GB and we silently degraded)
+            from ..io.gpu_wait import wait_gpu_free
+            if not wait_gpu_free(ssh_host, dev, min_free_mb=10_000,
+                                 max_wait_min=60, label="rfdiffusion"):
+                return GenerationResult(
+                    ok=False, pdbs=[], log="",
+                    reason=(f"GPU{dev} stayed busy (<10GB free) for 60min - "
+                            f"refusing to degrade silently"))
             remote = (f"cd {shlex.quote(str(self.workdir))} && "
                       f"CUDA_VISIBLE_DEVICES={dev} HYDRA_FULL_ERROR=1 "
                       + " ".join(shlex.quote(a) for a in argv))

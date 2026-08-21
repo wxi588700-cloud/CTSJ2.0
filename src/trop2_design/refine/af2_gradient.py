@@ -138,6 +138,14 @@ class Af2GradientAdapter:
         if ssh_host:
             dev = os.environ.get("TROP2_AF2_DEVICE",
                                  os.environ.get("TROP2_BOLTZ_DEVICE", "6"))
+            # shared-card guard: AF2 gradient needs ~30GB (0.60 x 48GB);
+            # wait rather than OOM on a violated-allocation card
+            from ..io.gpu_wait import wait_gpu_free
+            if not wait_gpu_free(ssh_host, dev, min_free_mb=32_000,
+                                 max_wait_min=180, label="af2-gradient"):
+                raise RuntimeError(
+                    f"GPU{dev} stayed busy (<32GB free) for 180min - AF2 "
+                    f"gradient cannot run; refusing silent degradation")
             remote = (
                 f"cd {shlex.quote(str(out_dir))} && "
                 f"CUDA_VISIBLE_DEVICES={dev} "

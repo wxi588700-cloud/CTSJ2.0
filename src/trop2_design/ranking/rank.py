@@ -223,7 +223,10 @@ def run(ctx) -> None:
     df["fold_plddt_norm"] = normalise(
         df["fold_plddt"].astype(float).to_numpy(), "maximize") * 100.0
     df["pareto_rank"] = np.nan            # filled below for survivors only
-    survivors = df[df.hard_filter_status != "reject"].copy()
+    # borrowed (optimized build): formal Pareto fronts contain ONLY fully
+    # passed candidates - review rows carry missing data and polluting the
+    # fronts (or the normalisation) with fillna(0) values misranks them
+    survivors = df[df.hard_filter_status == "pass"].copy()
     # objectives whose columns are missing (e.g. empty mechanism table after
     # the measured predictor rejected every design) are skipped, never zero-
     # filled silently

@@ -16,6 +16,7 @@ def wait_gpu_free(ssh_host: str, device: str, min_free_mb: int,
     """Wait until the card has >= min_free_mb free; True=proceed, False=give up."""
     deadline = time.time() + max_wait_min * 60
     waited = 0
+    probe_failures = 0
     while time.time() < deadline:
         try:
             out = subprocess.run(
@@ -23,8 +24,22 @@ def wait_gpu_free(ssh_host: str, device: str, min_free_mb: int,
                  f"nvidia-smi -i {device} --query-gpu=memory.free "
                  f"--format=csv,noheader,nounits"],
                 capture_output=True, text=True, timeout=30)
-            free = int(out.stdout.strip().splitlines()[0])
+            if out.returncode != 0:
+                raise RuntimeError(f"probe rc={out.returncode}")
+            lines = out.stdout.strip().splitlines()
+            if not lines:
+                raise RuntimeError("probe returned no data")
+            free = int(lines[0])
+            probe_failures = 0
         except Exception:
+            # borrowed fail-fast idea (optimized build), hardened with a
+            # 3-strike tolerance: transient ssh blips retry, persistent
+            # misconfiguration aborts instead of hanging for hours
+            probe_failures += 1
+            if probe_failures >= 3:
+                log(f"[{label}] GPU probe failed {probe_failures}x on "
+                    f"{ssh_host} - refusing to wait on an unavailable host")
+                return False
             free = 0
         if free >= min_free_mb:
             if waited:

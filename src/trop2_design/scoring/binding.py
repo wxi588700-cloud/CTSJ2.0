@@ -524,40 +524,49 @@ def run(ctx) -> None:
                 binder_seq = seq_of.get(dn)
                 if not isinstance(binder_seq, str) or not binder_seq:
                     continue
-                # Boltz input is SEQUENCE-only: the prediction cannot
-                # distinguish cleaved conformers of the same sequence, so we
-                # predict once per design (reference conformer) and apply the
-                # measured values to every conformer row.  Template/constraint
-                # conditioning is the documented upgrade path.
-                sid = cleaved.iloc[0].state_id
-                ss = state_seqs[sid]
-                chain_map = sorted(ss)  # BODY, NFR -> A, B
-                sequences = {
-                    "A": ss[chain_map[0]],
-                    "B": ss[chain_map[1]],
-                    "C": binder_seq,
-                }
-                result = bp.predict_complex(
-                    sequences, f"{cid[:12]}_cx",
-                    out / "boltz_complex" / dn[:64])
-                rec = {"candidate_id": cid, "design_name": dn,
-                       "state_id": sid, "ok": result.ok,
-                       "reason": result.reason,
-                       # PRD: failures must be traceable - keep the log tail
-                       "log_tail": (result.log or "")[-400:]}
-                if result.ok and result.iptm is not None:
-                    mask = (df.candidate_id == cid) & (df.design_name == dn) \
-                        & (df.state_id != "AGGREGATE")
-                    t88_meas = _t88_contact_from_structure(
-                        result.structure, right_num, "C")
-                    df.loc[mask, "complex_iptm_proxy"] = result.iptm
-                    df.loc[mask, "interface_pae_proxy"] = (
-                        result.interface_pae
-                        if result.interface_pae is not None
-                        else df.loc[mask, "interface_pae_proxy"])
-                    df.loc[mask, "metric_source"] = "measured"
-                    df.loc[mask, "predictor"] = "boltz-2"
-                    df.loc[mask, "t88_contacted"] = t88_meas["contacted"]
+                # Borrowed (optimized build): per-state prediction is
+                # OPT-IN via cfg.resources.boltz_per_state (default False).
+                # Sequence-only Boltz cannot infer conformational identity,
+                # so per-state runs are replicate predictions (measuring
+                # prediction stochasticity) at ~Nx GPU cost - the default
+                # still predicts the reference conformer ONCE but now every
+                # state row keeps its own provenance record instead of a
+                # silently copied value.
+                per_state = bool(getattr(cfg.resources, "boltz_per_state",
+                                         False))
+                sids = (list(state_seqs) if per_state
+                        else [cleaved.iloc[0].state_id])
+                for sid in sids:
+                    ss = state_seqs[sid]
+                    chain_map = sorted(ss)  # BODY, NFR -> A, B
+                    sequences = {
+                        "A": ss[chain_map[0]],
+                        "B": ss[chain_map[1]],
+                        "C": binder_seq,
+                    }
+                    result = bp.predict_complex(
+                        sequences, f"{cid[:12]}_cx",
+                        out / "boltz_complex" / dn[:64])
+                    rec = {"candidate_id": cid, "design_name": dn,
+                           "state_id": sid, "ok": result.ok,
+                           "reason": result.reason,
+                           "replicate": not per_state,
+                           # PRD: failures must be traceable - keep the log tail
+                           "log_tail": (result.log or "")[-400:]}
+                    if result.ok and result.iptm is not None:
+                        mask = (df.candidate_id == cid) & (df.design_name == dn) \
+                            & (df.state_id == sid if per_state
+                               else df.state_id != "AGGREGATE")
+                        t88_meas = _t88_contact_from_structure(
+                            result.structure, right_num, "C")
+                        df.loc[mask, "complex_iptm_proxy"] = result.iptm
+                        df.loc[mask, "interface_pae_proxy"] = (
+                            result.interface_pae
+                            if result.interface_pae is not None
+                            else df.loc[mask, "interface_pae_proxy"])
+                        df.loc[mask, "metric_source"] = "measured"
+                        df.loc[mask, "predictor"] = "boltz-2"
+                        df.loc[mask, "t88_contacted"] = t88_meas["contacted"]
                     df.loc[mask, "t88_min_distance"] = t88_meas["min_distance"]
                     df.loc[mask, "t88_n_contacts"] = t88_meas["n_contacts"]
                     rec.update({"iptm": result.iptm,

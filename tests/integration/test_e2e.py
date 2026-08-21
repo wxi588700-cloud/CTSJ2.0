@@ -31,6 +31,9 @@ def e2e_run(project_root: Path, tmp_path_factory) -> Path:
     cfg.negatives.epcam_structure = root / cfg.negatives.epcam_structure
     cfg.negatives.epcam_fasta = root / cfg.negatives.epcam_fasta
     cfg.design.max_candidates = 12  # reduced for test runtime
+    cfg.design.gradient.enabled = False  # CPU e2e: no GPU gradient stage;
+    # also keeps the full 12-candidate budget for M04 (the production
+    # reserved-quota would cut it to 12-6)
     tools = ToolsConfig()           # no GPU tools -> deterministic proxy mode
     ctx = build_context(root, cfg, tools, run_id="pytest_e2e")
     manifest = build_manifest(root, cfg, tools, ctx)
